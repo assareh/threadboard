@@ -185,40 +185,40 @@ resource "google_secret_manager_secret_version" "flask_secret_key" {
   secret_data = random_password.flask_secret_key.result
 }
 
-# Firewall rule for HTTP/HTTPS traffic - IPv4 (Cloudflare only)
+# Firewall rule for HTTPS traffic - IPv4 (Cloudflare only)
 resource "google_compute_firewall" "threadboard_http_ipv4" {
   depends_on = [google_project_service.enable_apis]
 
-  name    = "threadboard-allow-http-cloudflare-ipv4"
+  name    = "threadboard-allow-https-cloudflare-ipv4"
   network = "default"
 
   allow {
     protocol = "tcp"
-    ports    = ["80", "443"]
+    ports    = ["443"]
   }
 
   source_ranges = local.cloudflare_ipv4_ranges
   target_tags   = ["threadboard"]
 
-  description = "Allow HTTP/HTTPS from Cloudflare IPv4 ranges only"
+  description = "Allow HTTPS from Cloudflare IPv4 ranges only"
 }
 
-# Firewall rule for HTTP/HTTPS traffic - IPv6 (Cloudflare only)
+# Firewall rule for HTTPS traffic - IPv6 (Cloudflare only)
 resource "google_compute_firewall" "threadboard_http_ipv6" {
   depends_on = [google_project_service.enable_apis]
 
-  name    = "threadboard-allow-http-cloudflare-ipv6"
+  name    = "threadboard-allow-https-cloudflare-ipv6"
   network = "default"
 
   allow {
     protocol = "tcp"
-    ports    = ["80", "443"]
+    ports    = ["443"]
   }
 
   source_ranges = local.cloudflare_ipv6_ranges
   target_tags   = ["threadboard"]
 
-  description = "Allow HTTP/HTTPS from Cloudflare IPv6 ranges only"
+  description = "Allow HTTPS from Cloudflare IPv6 ranges only"
 }
 
 resource "google_compute_firewall" "threadboard_ssh" {
