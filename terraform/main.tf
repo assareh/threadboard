@@ -326,7 +326,7 @@ resource "cloudflare_record" "threadboard" {
 
   zone_id = var.cloudflare_zone_id
   name    = var.cloudflare_record_name
-  value   = google_compute_address.threadboard_static_ip.address
+  content = google_compute_address.threadboard_static_ip.address
   type    = "A"
   proxied = true
   ttl     = 1 # Auto TTL when proxied
