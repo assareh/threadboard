@@ -32,3 +32,8 @@ output "cloudflare_dns_record" {
   description = "Cloudflare DNS record (if configured)"
   value       = var.cloudflare_zone_id != "" ? cloudflare_record.threadboard[0].hostname : "Not configured"
 }
+
+output "ssh_command" {
+  description = "SSH command to connect to the instance"
+  value       = "gcloud compute ssh ${google_compute_instance.threadboard_instance.name} --project=${var.project_id} --zone=${google_compute_instance.threadboard_instance.zone}"
+}
