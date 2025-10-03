@@ -19,6 +19,8 @@ gemini_api_key = "your-gemini-api-key"
 
 # Cloudflare configuration (OPTIONAL - leave commented out to skip DNS setup)
 # Get API key from: https://dash.cloudflare.com/profile/api-tokens
+# Get account ID from: https://dash.cloudflare.com (in the right sidebar)
 # cloudflare_api_key     = "your-cloudflare-api-key"
+# cloudflare_account_id  = "your-cloudflare-account-id"
 # cloudflare_zone_id     = "example.com"  # Your domain name
-# cloudflare_record_name = "threadboard"  # or "@" for root domain
+# cloudflare_record_name = "@"  # or "subdomain" for subdomain.example.com

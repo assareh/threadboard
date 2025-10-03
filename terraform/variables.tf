@@ -39,6 +39,12 @@ variable "cloudflare_api_key" {
   default     = ""
 }
 
+variable "cloudflare_account_id" {
+  description = "Cloudflare Account ID (optional - required for DNS configuration)"
+  type        = string
+  default     = ""
+}
+
 variable "cloudflare_zone_id" {
   description = "Cloudflare Zone name/domain (e.g., 'example.com') - leave empty to skip DNS configuration"
   type        = string

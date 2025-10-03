@@ -324,7 +324,8 @@ resource "google_project_iam_member" "cloudbuild_artifacts_writer" {
 data "cloudflare_zone" "zone" {
   count = var.cloudflare_zone_id != "" ? 1 : 0
 
-  name = var.cloudflare_zone_id
+  account_id = var.cloudflare_account_id
+  name       = var.cloudflare_zone_id
 }
 
 # Cloudflare DNS record (optional - only created if cloudflare_zone_id is provided)
