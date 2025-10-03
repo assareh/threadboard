@@ -30,6 +30,35 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Helper function to get secrets from GCP Secret Manager or environment variables
+def get_secret(secret_id_env_var: str, default: str = None) -> Optional[str]:
+    """
+    Get secret from GCP Secret Manager if running in GCP, otherwise from environment variable.
+
+    Args:
+        secret_id_env_var: Environment variable containing the secret ID or the secret value
+        default: Default value if secret not found
+
+    Returns:
+        Secret value or default
+    """
+    # Check if we're running in GCP (has GOOGLE_CLOUD_PROJECT set)
+    project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
+    secret_id = os.getenv(secret_id_env_var)
+
+    if project_id and secret_id and not secret_id.startswith('sk-'):  # If it's a secret ID, not the actual secret
+        try:
+            from google.cloud import secretmanager
+            client = secretmanager.SecretManagerServiceClient()
+            name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+            response = client.access_secret_version(request={"name": name})
+            return response.payload.data.decode('UTF-8')
+        except Exception as e:
+            logger.warning(f"Failed to get secret {secret_id} from Secret Manager: {e}")
+
+    # Fall back to environment variable
+    return os.getenv(secret_id_env_var, default)
+
 # Configuration
 DATA_DIR = Path("data")
 BOARDS_DIR = DATA_DIR / "boards"
@@ -41,16 +70,16 @@ for directory in [DATA_DIR, BOARDS_DIR, POSTS_DIR, TRACKING_DIR]:
     directory.mkdir(exist_ok=True)
 
 # Reddit OAuth configuration
-REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
-REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
+REDDIT_CLIENT_ID = get_secret("REDDIT_CLIENT_ID_SECRET") or os.getenv("REDDIT_CLIENT_ID")
+REDDIT_CLIENT_SECRET = get_secret("REDDIT_CLIENT_SECRET_SECRET") or os.getenv("REDDIT_CLIENT_SECRET")
 
 # LLM Configuration
 USE_GEMINI = os.getenv("USE_GEMINI", "false").lower() == "true"
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = get_secret("GEMINI_API_KEY_SECRET") or os.getenv("GEMINI_API_KEY")
 LOCAL_LLM_URL = "http://127.0.0.1:1234/v1/chat/completions"
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SECRET_KEY'] = get_secret("SECRET_KEY_SECRET") or os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Global state for background tasks
 board_tasks = {}

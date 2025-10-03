@@ -1,25 +1,27 @@
-# Data directories
-data/
-
-# Logs
-*.log
-
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
 
 # Virtual environments
 venv/
 env/
 ENV/
-.venv
 
-# Environment variables
-.env
-.env.local
+# Data directory
+data/
+
+# Logs
+*.log
+threadboard.log
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+terraform/.terraform.lock.hcl
+terraform/crash.log
 
 # IDE
 .vscode/
@@ -32,7 +34,11 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
+# Environment variables
+.env
+.env.local
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/

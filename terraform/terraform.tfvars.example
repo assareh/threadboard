@@ -1,0 +1,24 @@
+# Copy this file to terraform.tfvars and fill in your values
+# DO NOT commit terraform.tfvars to version control
+
+project_id = "your-gcp-project-id"
+region     = "us-west1"
+
+# Your IP address in CIDR format for SSH access
+# Find it with: curl ifconfig.me
+my_ip_address = "1.2.3.4/32"
+
+# Reddit API credentials
+# Get from: https://www.reddit.com/prefs/apps
+reddit_client_id     = "your-reddit-client-id"
+reddit_client_secret = "your-reddit-client-secret"
+
+# Google Gemini API Key
+# Get from: https://aistudio.google.com/app/apikey
+gemini_api_key = "your-gemini-api-key"
+
+# Cloudflare configuration (OPTIONAL - leave commented out to skip DNS setup)
+# Get API token from: https://dash.cloudflare.com/profile/api-tokens
+# cloudflare_api_token   = "your-cloudflare-api-token"
+# cloudflare_zone_id     = "your-cloudflare-zone-id"
+# cloudflare_record_name = "threadboard"  # or "@" for root domain

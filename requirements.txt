@@ -2,3 +2,4 @@ Flask==3.0.0
 requests==2.31.0
 tenacity==8.2.3
 google-generativeai==0.3.2
+google-cloud-secret-manager==2.16.4

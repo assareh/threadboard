@@ -1,0 +1,93 @@
+steps:
+  # Step 0: Get current timestamp for version tracking
+  - name: "gcr.io/cloud-builders/gcloud"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        echo "$(date -u +"%Y-%m-%d %H:%M:%S UTC")" > /workspace/build_timestamp.txt
+
+  # Step 1: Build the Docker image with version tracking
+  - name: "gcr.io/cloud-builders/docker"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        BUILD_TIMESTAMP=$(cat /workspace/build_timestamp.txt)
+        docker build \
+          --build-arg BUILD_COMMIT_ARG=$COMMIT_SHA \
+          --build-arg BUILD_BRANCH_ARG=$BRANCH_NAME \
+          --build-arg BUILD_TIMESTAMP_ARG="$$BUILD_TIMESTAMP" \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/threadboard/threadboard:latest \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/threadboard/threadboard:$COMMIT_SHA \
+          .
+
+  # Step 2: Push the images to Artifact Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "--all-tags"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/threadboard/threadboard"
+
+  # Step 3: Update VM deployment
+  - name: "gcr.io/cloud-builders/gcloud"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        INSTANCE_NAME="threadboard-instance"
+        ZONE="${_REGION}-a"
+
+        echo "🚀 Updating Threadboard VM deployment..."
+        echo "Project: $PROJECT_ID"
+        echo "Instance: $$INSTANCE_NAME"
+        echo "Zone: $$ZONE"
+        echo ""
+
+        # Check if instance exists and is running
+        echo "Checking instance status..."
+        INSTANCE_STATUS=$$(gcloud compute instances describe $$INSTANCE_NAME \
+          --zone=$$ZONE \
+          --format="value(status)" 2>/dev/null || echo "NOT_FOUND")
+
+        if [[ "$$INSTANCE_STATUS" == "NOT_FOUND" ]]; then
+          echo "❌ Instance $$INSTANCE_NAME not found in zone $$ZONE"
+          exit 1
+        elif [[ "$$INSTANCE_STATUS" != "RUNNING" ]]; then
+          echo "⚠️  Instance is $$INSTANCE_STATUS, attempting to start..."
+          gcloud compute instances start $$INSTANCE_NAME --zone=$$ZONE
+          echo "Waiting for instance to start..."
+          sleep 30
+        fi
+
+        echo "✅ Instance is running"
+
+        # Use instance metadata to signal deployment
+        echo "🔄 Triggering VM update via metadata signal..."
+
+        # Create a unique deployment signal
+        DEPLOY_SIGNAL="deploy-$(date +%s)-$${COMMIT_SHA:0:7}"
+
+        # Set deployment signal in metadata
+        echo "📝 Setting deployment signal in metadata..."
+        gcloud compute instances add-metadata $$INSTANCE_NAME \
+          --zone=$$ZONE \
+          --metadata=deploy-signal="$$DEPLOY_SIGNAL",deploy-commit="$$COMMIT_SHA",deploy-timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+        echo "✅ Deployment signal sent: $$DEPLOY_SIGNAL"
+        echo "📡 The deployment monitor will detect this signal and trigger the update automatically"
+        echo "🔍 Monitor the application logs to see the update progress"
+
+        # Wait for the app to detect and start the update
+        echo "⏳ Waiting for app to detect deployment signal..."
+        sleep 30
+
+        echo ""
+        echo "✅ Threadboard VM deployment updated successfully!"
+        echo "🌐 Check application at: http://$(gcloud compute instances describe $$INSTANCE_NAME --zone=$$ZONE --format='value(networkInterfaces[0].accessConfigs[0].natIP)'):5000"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _REGION: us-west1  # Set your region here
