@@ -40,7 +40,7 @@ ENV PYTHONUNBUFFERED=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:5000/', timeout=5)"
+  CMD python -c "import requests; requests.get('https://localhost:5443/', timeout=5, verify=False)"
 
 # Run the application with Gunicorn
 CMD ["python", "gunicorn_app.py"]

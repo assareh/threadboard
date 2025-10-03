@@ -108,7 +108,6 @@ services:
     image: ${region}-docker.pkg.dev/${project_id}/threadboard/threadboard:latest
     container_name: threadboard
     ports:
-      - "80:5000"
       - "443:5443"
     environment:
       - REDDIT_CLIENT_ID_SECRET=${reddit_client_id_secret}
@@ -117,7 +116,6 @@ services:
       - SECRET_KEY_SECRET=${flask_secret_key_secret}
       - GOOGLE_CLOUD_PROJECT=${project_id}
       - USE_GEMINI=true
-      - PORT=5000
       - SSL_PORT=5443
       - SSL_CERT=/app/certs/cert.pem
       - SSL_KEY=/app/certs/key.pem
