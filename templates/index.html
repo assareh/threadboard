@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Threadboard - Your Feeds{% endblock %}
+{% block title %}Threadboard - Your Boards{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -127,15 +127,15 @@
         <a href="/create" style="text-decoration: none;">
             <div class="feed-card create-card">
                 <div class="create-icon">+</div>
-                <h3>Create New Feed</h3>
+                <h3>Create New Board</h3>
             </div>
         </a>
     </div>
 {% else %}
     <div class="empty-state">
-        <h3>No feeds yet</h3>
-        <p>Create your first custom Reddit feed to get started!</p>
-        <a href="/create" class="btn" style="margin-top: 20px;">Create Your First Feed</a>
+        <h3>No boards yet</h3>
+        <p>Create your first custom Reddit board to get started!</p>
+        <a href="/create" class="btn" style="margin-top: 20px;">Create Your First Board</a>
     </div>
 {% endif %}
 {% endblock %}

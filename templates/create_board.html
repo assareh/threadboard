@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Board - Threadboard{% endblock %}
+
+{% block extra_styles %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.default.css" rel="stylesheet">
+<style>
+    /* Tom Select custom styling */
+    .ts-control, .ts-wrapper.single .ts-control, .ts-wrapper.multi .ts-control {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .ts-dropdown {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .ts-dropdown .option {
+        color: var(--text-primary);
+    }
+
+    .ts-dropdown .option.active {
+        background: var(--accent-color);
+        color: white;
+    }
+
+    .ts-wrapper.multi .ts-control > div {
+        background: var(--accent-color);
+        color: white;
+        border: 0;
+    }
+
+    .ts-wrapper.multi .ts-control .item {
+        background: var(--accent-color);
+        color: white;
+        border: 0;
+        border-radius: 3px;
+        padding: 3px 8px;
+        margin: 2px;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .ts-wrapper.multi .ts-control .item .remove {
+        color: inherit;
+        text-decoration: none;
+        vertical-align: middle;
+        display: inline-block;
+        padding: 0 5px;
+        border-radius: 0;
+        border-left: 1px solid rgba(255,255,255,0.25);
+        margin-left: 5px;
+        font-weight: bold;
+    }
+
+    .ts-wrapper.multi .ts-control .item .remove:hover {
+        background: rgba(0,0,0,0.2);
+    }
+
+    .ts-control input {
+        color: var(--text-primary);
+    }
+
+    .form-card {
+        background: var(--bg-secondary);
+        padding: 32px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .form-card h2 {
+        margin-top: 0;
+        color: var(--text-primary);
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+    }
+
+    .example-box {
+        background: var(--bg-tertiary);
+        padding: 16px;
+        border-radius: 6px;
+        border-left: 4px solid var(--accent-color);
+        margin-top: 8px;
+    }
+
+    .example-box h4 {
+        margin: 0 0 8px 0;
+        color: var(--text-primary);
+        font-size: 0.95em;
+    }
+
+    .example-box p {
+        margin: 4px 0;
+        color: var(--text-secondary);
+        font-size: 0.9em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="form-card">
+        <h2>Create Custom Board</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">
+            Create a personalized Reddit page that uses AI to filter posts based on your interests.
+        </p>
+
+        <form method="POST" action="/create">
+            <div class="form-group">
+                <label for="subreddits">Subreddits to Monitor</label>
+                <select
+                    id="subreddits"
+                    name="subreddits"
+                    multiple
+                    placeholder="Type to search subreddits..."
+                    required
+                hidden>
+                </select>
+                <small>Enter or select subreddits to monitor</small>
+            </div>
+
+            <div class="form-group">
+                <label for="feed_name">Board Name</label>
+                <input
+                    type="text"
+                    id="feed_name"
+                    name="feed_name"
+                    placeholder="e.g., angry-hippo"
+                    required
+                >
+                <small>Give your board a name (auto-generated suggestion provided)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="frequency">Check Frequency (minutes)</label>
+                <input
+                    type="number"
+                    id="frequency"
+                    name="frequency"
+                    value="180"
+                    readonly
+                    required
+                >
+                <small>Boards are checked every 180 minutes (3 hours).</small>
+            </div>
+
+            <div class="form-group">
+                <label for="filter_prompt">Filter Criteria</label>
+                <textarea
+                    id="filter_prompt"
+                    name="filter_prompt"
+                    placeholder="Describe what posts you're interested in..."
+                    required
+                ># Mission
+You are a content discovery agent tasked with identifying interesting and valuable posts on Reddit.
+
+# Instructions
+- Be selective - only mark posts as interesting if they contain substantive, valuable content.
+
+## Focus on:
+- Detailed reviews, analysis, or in-depth discussions
+- Personal experiences with specific products, services, or topics
+- High-quality content with substantive information
+- First-hand accounts, comparisons, or thorough breakdowns
+- Posts that provide real insights or detailed perspectives
+
+## Ignore:
+- Simple questions or requests for recommendations
+- Low-effort posts without substance
+- "What should I buy?" or "Help me choose" posts
+- Collection photos without detailed commentary
+- Basic purchase questions or shopping advice
+- Posts asking others for suggestions without contributing</textarea>
+                <small>Describe the type of posts you want to see. Be specific about topics, keywords, or criteria. The default template provides a good starting point.</small>
+
+                <div class="example-box">
+                    <h4>Example Filter Criteria:</h4>
+                    <p><strong>Tech Deals:</strong> "Posts about laptop or computer hardware deals, sales, or discounts. Especially interested in gaming laptops and productivity tools."</p>
+                    <p><strong>Learning Resources:</strong> "Free courses, tutorials, or educational resources about web development, especially React, TypeScript, or Node.js."</p>
+                    <p><strong>Job Opportunities:</strong> "Remote software engineering job postings for senior-level positions, particularly in Python or Go."</p>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn">Create Board</button>
+                <a href="/" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+    const adjectives = ['happy', 'sleepy', 'grumpy', 'brave', 'clever', 'mighty', 'swift', 'cosmic', 'electric', 'golden', 'silver', 'crimson', 'azure', 'emerald', 'peaceful', 'fierce', 'gentle', 'wild', 'fancy', 'jolly', 'lazy', 'eager', 'proud', 'quiet', 'loud', 'bouncy', 'dizzy', 'silly', 'wise', 'crafty', 'noble', 'rusty', 'shiny', 'foggy', 'sunny', 'stormy', 'breezy', 'frosty', 'dusty', 'misty', 'angry', 'calm', 'bold', 'shy', 'zippy', 'spunky', 'fuzzy', 'sneaky', 'jumpy'];
+    const animals = ['hippo', 'panda', 'tiger', 'eagle', 'wolf', 'bear', 'fox', 'lion', 'otter', 'falcon', 'badger', 'raven', 'lynx', 'gecko', 'cobra', 'shark', 'whale', 'dolphin', 'penguin', 'koala', 'moose', 'bison', 'hawk', 'owl', 'ferret', 'beaver', 'rabbit', 'squirrel', 'raccoon', 'possum', 'chipmunk', 'hedgehog', 'armadillo', 'platypus', 'walrus', 'narwhal', 'octopus', 'jellyfish', 'starfish', 'sealion', 'meerkat', 'lemur', 'sloth', 'iguana', 'toucan', 'parrot', 'flamingo', 'pelican'];
+
+    // Curated list of popular subreddits (sorted alphabetically)
+    const popularSubreddits = [
+        'AMA', 'AdviceAnimals', 'Android', 'AnimalsBeingBros', 'Anime', 'ArtificialInteligence', 'Art', 'AskHistorians',
+        'AskMen', 'AskReddit', 'AskScience', 'AskWomen', 'atheism', 'aww',
+        'baseball', 'beauty', 'bestof', 'bioinformatics', 'Bitcoin', 'BikiniBottomTwitter', 'blackmagicfuckery', 'boardgames',
+        'bodyweightfitness', 'books', 'Boston', 'buildapc', 'business',
+        'cats', 'ChangeMyView', 'chicago', 'comics', 'coolguides', 'crafts', 'CryptoCurrency', 'cscareerquestions',
+        'daddit', 'DadReflexes', 'dankmemes', 'dataisbeautiful', 'datascience', 'datingoverthirty', 'Destiny', 'devops',
+        'DIY', 'dogecoin', 'dogs',
+        'earthporn', 'EatCheapAndHealthy', 'education', 'Entrepreneur', 'ethereum', 'explainlikeimfive',
+        'Fallout', 'FantasyPL', 'femalefashionadvice', 'fiaustralia', 'Fitness', 'food', 'footballmanagergames', 'forhire',
+        'france', 'freelance', 'frugal', 'frugalmalefashion', 'funny', 'Futurology',
+        'gadgets', 'Games', 'gaming', 'gifs', 'golang', 'GetMotivated', 'graphic_design',
+        'hardware', 'Health', 'HistoryMemes', 'HolUp', 'HomeImprovement', 'homelab', 'houston',
+        'IdentityV', 'indiegames', 'InternetIsBeautiful', 'investing', 'ios', 'Italy',
+        'java', 'javascript', 'Jokes', 'JusticeServed',
+        'LAClippers', 'leagueoflegends', 'LearnJapanese', 'learnprogramming', 'LegalAdvice', 'LifeProTips', 'linux',
+        'listentothis', 'LiverpoolFC', 'london', 'LosAngeles', 'loseit',
+        'MachineLearning', 'malefashionadvice', 'MapPorn', 'marvelstudios', 'me_irl', 'memes', 'melbourne', 'mexico',
+        'Minecraft', 'movies', 'music', 'nba', 'nfl', 'news', 'news', 'nextfuckinglevel', 'nintendo', 'nottheonion', 'nyc',
+        'oddlysatisfying', 'OutOfTheLoop', 'Overwatch',
+        'parenting', 'PewdiepieSubmissions', 'personalfinance', 'philosophy', 'photography', 'photoshopbattles', 'pics',
+        'playstation', 'podcasts', 'politics', 'pokemongo', 'PresidentialRaceMemes', 'privacy', 'productivity', 'programming',
+        'ProgrammerHumor', 'python',
+        'rarepuppers', 'reactjs', 'Recipes', 'relationships', 'remotework', 'running', 'rust',
+        'sanfrancisco', 'SandersForPresident', 'science', 'Seattle', 'selfimprovement', 'sex', 'Showerthoughts',
+        'skateboarding', 'smallbusiness', 'soccer', 'space', 'sports', 'startups', 'StarWars', 'stocks', 'Swimming', 'sydney',
+        'technology', 'television', 'Tennis', 'TheSimpsons', 'tifu', 'todayilearned', 'toronto', 'travel', 'trees',
+        'typescript', 'UpliftingNews',
+        'vegan', 'vancouver', 'videos',
+        'wallstreetbets', 'WatchPeopleDieInside', 'webdev', 'whatisthisthing', 'WholeSomeMemes', 'woodworking', 'worldnews',
+        'Xbox', 'xboxone',
+        'YouShouldKnow'
+    ];
+
+    function generateRandomName() {
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const animal = animals[Math.floor(Math.random() * animals.length)];
+        return adj + '-' + animal;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize feed name
+        const feedNameInput = document.getElementById('feed_name');
+        feedNameInput.value = generateRandomName();
+
+        // Initialize Tom Select with dynamic loading from Reddit API
+        const tomSelectInstance = new TomSelect('#subreddits', {
+            plugins: {
+                'remove_button': {
+                    title: 'Remove this subreddit'
+                }
+            },
+            create: true,
+            maxItems: 20,
+            maxOptions: null, // Show all options (no limit)
+            valueField: 'value',
+            labelField: 'text',
+            searchField: 'text',
+            placeholder: 'Type to search or add subreddits...',
+            persist: false,
+            createOnBlur: true,
+            load: function(query, callback) {
+                // Fetch subreddits from our API
+                fetch('/api/subreddits')
+                    .then(response => response.json())
+                    .then(data => {
+                        callback(data);
+                    })
+                    .catch(() => {
+                        callback();
+                    });
+            },
+            onInitialize: function() {
+                // Load initial options when Tom Select initializes
+                this.load('');
+            }
+        });
+
+        // Setup event handlers
+        tomSelectInstance.on('item_add', function (value, item) {
+            // Clear the input field after selection
+            this.control_input.value = '';
+            this.setTextboxValue('');
+            this.refreshOptions(false);
+            setTimeout(() => {
+                const activeOption = this.dropdown_content.querySelector('.active');
+                if (activeOption) {
+                    activeOption.classList.remove('active');
+                }
+            }, 0);
+        });
+    });
+</script>
+{% endblock %}
