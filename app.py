@@ -174,12 +174,10 @@ app.config['SECRET_KEY'] = get_secret("SECRET_KEY_SECRET") or os.getenv('SECRET_
 # Global state for background tasks
 board_tasks = {}
 
-# Cache for subreddits (to avoid hitting Reddit API too often)
-subreddits_cache = {
-    'data': None,
-    'timestamp': 0
-}
-SUBREDDITS_CACHE_TTL = 3600  # 1 hour in seconds
+# Subreddit cache configuration
+SUBREDDITS_CACHE_FILE = "subreddits_cache.json"
+SUBREDDITS_FETCH_INTERVAL = 3600  # 1 hour in seconds
+SUBREDDITS_PER_PAGE = 100
 
 
 class RedditAPI:
@@ -407,52 +405,100 @@ def index():
     return render_template('index.html', boards=boards)
 
 
-@app.route('/api/subreddits')
-def get_subreddits():
-    """Fetch popular subreddits from Reddit API (with caching)"""
-    global subreddits_cache
-
-    # Check if cache is still valid
-    current_time = time.time()
-    if subreddits_cache['data'] and (current_time - subreddits_cache['timestamp']) < SUBREDDITS_CACHE_TTL:
-        logger.info(f"Returning {len(subreddits_cache['data'])} cached subreddits")
-        return jsonify(subreddits_cache['data'])
-
-    # Cache expired or empty, fetch from Reddit
+def fetch_next_subreddit_page():
+    """Background task to fetch next page of subreddits from Reddit and add to GCS cache"""
     try:
+        # Load existing cache from GCS
+        cache_data = storage_backend.load_json("cache", SUBREDDITS_CACHE_FILE)
+        if not cache_data:
+            cache_data = {
+                'subreddits': set(),
+                'after': None,
+                'last_fetch': 0
+            }
+        else:
+            # Convert list back to set
+            cache_data['subreddits'] = set(cache_data.get('subreddits', []))
+
+        current_time = time.time()
+
+        # Check if enough time has passed since last fetch
+        if current_time - cache_data.get('last_fetch', 0) < SUBREDDITS_FETCH_INTERVAL:
+            logger.info("Skipping subreddit fetch - too soon since last fetch")
+            return
+
+        # Fetch next page from Reddit
         headers = {
             'User-Agent': 'Mozilla/5.0 (compatible; Threadboard/1.0; +https://threadboard.cc)'
         }
-        response = requests.get('https://www.reddit.com/subreddits/popular.json?limit=100', headers=headers, timeout=10)
+
+        url = f'https://www.reddit.com/subreddits/popular.json?limit={SUBREDDITS_PER_PAGE}'
+        if cache_data.get('after'):
+            url += f"&after={cache_data['after']}"
+
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
 
         data = response.json()
-        subreddits = []
 
+        # Extract subreddit names and add to set
+        new_count = 0
         for child in data.get('data', {}).get('children', []):
             subreddit_data = child.get('data', {})
             display_name = subreddit_data.get('display_name')
-            if display_name:
-                subreddits.append({
-                    'value': display_name,
-                    'text': display_name
-                })
+            if display_name and display_name not in cache_data['subreddits']:
+                cache_data['subreddits'].add(display_name)
+                new_count += 1
 
-        # Update cache
-        subreddits_cache['data'] = subreddits
-        subreddits_cache['timestamp'] = current_time
+        # Update pagination cursor
+        cache_data['after'] = data.get('data', {}).get('after')
+        cache_data['last_fetch'] = current_time
 
-        logger.info(f"Fetched and cached {len(subreddits)} subreddits from Reddit")
-        return jsonify(subreddits)
+        # If we've reached the end, reset to start over
+        if not cache_data['after']:
+            logger.info("Reached end of subreddit list, resetting to beginning")
+            cache_data['after'] = None
+
+        # Save back to GCS (convert set to sorted list for JSON serialization)
+        cache_data_for_storage = {
+            'subreddits': sorted(list(cache_data['subreddits'])),
+            'after': cache_data['after'],
+            'last_fetch': cache_data['last_fetch']
+        }
+        storage_backend.save_json("cache", SUBREDDITS_CACHE_FILE, cache_data_for_storage)
+
+        logger.info(f"Fetched {new_count} new subreddits from Reddit (total: {len(cache_data['subreddits'])})")
+
     except Exception as e:
-        logger.error(f"Error fetching subreddits: {e}")
+        logger.error(f"Error fetching subreddit page: {e}")
 
-        # If we have stale cache, return it
-        if subreddits_cache['data']:
-            logger.info(f"Returning stale cache ({len(subreddits_cache['data'])} subreddits)")
-            return jsonify(subreddits_cache['data'])
 
-        # Otherwise return fallback list
+@app.route('/api/subreddits')
+def get_subreddits():
+    """Get cached subreddits list from GCS"""
+    try:
+        # Load from GCS cache
+        cache_data = storage_backend.load_json("cache", SUBREDDITS_CACHE_FILE)
+
+        if cache_data and cache_data.get('subreddits'):
+            subreddits = [{'value': sub, 'text': sub} for sub in sorted(cache_data['subreddits'])]
+            logger.info(f"Returning {len(subreddits)} cached subreddits from GCS")
+
+            # Trigger background fetch if needed (async)
+            Thread(target=fetch_next_subreddit_page, daemon=True).start()
+
+            return jsonify(subreddits)
+
+        # No cache yet, trigger initial fetch and return fallback
+        Thread(target=fetch_next_subreddit_page, daemon=True).start()
+
+        fallback = ['AskReddit', 'news', 'worldnews', 'funny', 'gaming', 'aww', 'pics', 'science',
+                   'technology', 'movies', 'music', 'books', 'fitness', 'programming']
+        logger.info("No cached subreddits, returning fallback list and triggering background fetch")
+        return jsonify([{'value': sub, 'text': sub} for sub in fallback])
+
+    except Exception as e:
+        logger.error(f"Error loading subreddits from cache: {e}")
         fallback = ['AskReddit', 'news', 'worldnews', 'funny', 'gaming', 'aww', 'pics', 'science',
                    'technology', 'movies', 'music', 'books', 'fitness', 'programming']
         return jsonify([{'value': sub, 'text': sub} for sub in fallback])
