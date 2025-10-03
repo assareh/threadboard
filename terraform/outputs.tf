@@ -37,3 +37,8 @@ output "ssh_command" {
   description = "SSH command to connect to the instance"
   value       = "gcloud compute ssh ${google_compute_instance.threadboard_instance.name} --project=${var.project_id} --zone=${google_compute_instance.threadboard_instance.zone}"
 }
+
+output "gcs_bucket_name" {
+  description = "GCS bucket name for data storage"
+  value       = google_storage_bucket.threadboard_data.name
+}

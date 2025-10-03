@@ -115,12 +115,12 @@ services:
       - GEMINI_API_KEY_SECRET=${gemini_api_key_secret}
       - SECRET_KEY_SECRET=${flask_secret_key_secret}
       - GOOGLE_CLOUD_PROJECT=${project_id}
+      - GCS_BUCKET_NAME=${project_id}-threadboard-data
       - USE_GEMINI=true
       - SSL_PORT=5443
       - SSL_CERT=/app/certs/cert.pem
       - SSL_KEY=/app/certs/key.pem
     volumes:
-      - /var/lib/app/data:/app/data
       - /var/lib/app/certs:/app/certs:ro
     restart: unless-stopped
     logging:

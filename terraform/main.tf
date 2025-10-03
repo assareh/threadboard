@@ -115,6 +115,12 @@ resource "google_project_iam_member" "threadboard_artifact_reader" {
   member  = "serviceAccount:${google_service_account.threadboard_service_account.email}"
 }
 
+resource "google_storage_bucket_iam_member" "threadboard_storage_admin" {
+  bucket = google_storage_bucket.threadboard_data.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.threadboard_service_account.email}"
+}
+
 # Reddit API credentials
 resource "google_secret_manager_secret" "reddit_client_id" {
   depends_on = [google_project_service.enable_apis]
@@ -300,6 +306,30 @@ resource "google_project_iam_member" "cloudbuild_service_account_user" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser"
   member  = "serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"
+}
+
+# GCS bucket for data storage
+resource "google_storage_bucket" "threadboard_data" {
+  depends_on = [google_project_service.enable_apis]
+
+  name          = "${var.project_id}-threadboard-data"
+  location      = var.region
+  force_destroy = false
+
+  uniform_bucket_level_access = true
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      num_newer_versions = 5
+    }
+    action {
+      type = "Delete"
+    }
+  }
 }
 
 # Artifact Registry for Docker images

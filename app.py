@@ -19,6 +19,13 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+# GCS imports
+try:
+    from google.cloud import storage
+    GCS_AVAILABLE = True
+except ImportError:
+    GCS_AVAILABLE = False
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -59,15 +66,98 @@ def get_secret(secret_id_env_var: str, default: str = None) -> Optional[str]:
     # Fall back to environment variable
     return os.getenv(secret_id_env_var, default)
 
-# Configuration
-DATA_DIR = Path("data")
-BOARDS_DIR = DATA_DIR / "boards"
-POSTS_DIR = DATA_DIR / "posts"
-TRACKING_DIR = DATA_DIR / "tracking"
+# Storage configuration
+GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
+USE_GCS = GCS_AVAILABLE and GCS_BUCKET_NAME
 
-# Create directories
-for directory in [DATA_DIR, BOARDS_DIR, POSTS_DIR, TRACKING_DIR]:
-    directory.mkdir(exist_ok=True)
+class StorageBackend:
+    """Abstract storage backend for boards, posts, and tracking data"""
+
+    def __init__(self):
+        if USE_GCS:
+            logger.info(f"Using GCS storage with bucket: {GCS_BUCKET_NAME}")
+            self.client = storage.Client()
+            self.bucket = self.client.bucket(GCS_BUCKET_NAME)
+            self.use_gcs = True
+        else:
+            logger.info("Using local filesystem storage")
+            self.use_gcs = False
+            self.data_dir = Path("data")
+            self.boards_dir = self.data_dir / "boards"
+            self.posts_dir = self.data_dir / "posts"
+            self.tracking_dir = self.data_dir / "tracking"
+            for directory in [self.data_dir, self.boards_dir, self.posts_dir, self.tracking_dir]:
+                directory.mkdir(exist_ok=True)
+
+    def _get_blob_path(self, category: str, filename: str) -> str:
+        """Get GCS blob path"""
+        return f"{category}/{filename}"
+
+    def _get_local_path(self, category: str, filename: str) -> Path:
+        """Get local filesystem path"""
+        if category == "boards":
+            return self.boards_dir / filename
+        elif category == "posts":
+            return self.posts_dir / filename
+        elif category == "tracking":
+            return self.tracking_dir / filename
+        raise ValueError(f"Unknown category: {category}")
+
+    def save_json(self, category: str, filename: str, data: dict):
+        """Save JSON data"""
+        json_str = json.dumps(data, indent=2)
+
+        if self.use_gcs:
+            blob = self.bucket.blob(self._get_blob_path(category, filename))
+            blob.upload_from_string(json_str, content_type='application/json')
+        else:
+            path = self._get_local_path(category, filename)
+            path.write_text(json_str)
+
+    def load_json(self, category: str, filename: str) -> Optional[dict]:
+        """Load JSON data"""
+        if self.use_gcs:
+            blob = self.bucket.blob(self._get_blob_path(category, filename))
+            if not blob.exists():
+                return None
+            json_str = blob.download_as_text()
+            return json.loads(json_str)
+        else:
+            path = self._get_local_path(category, filename)
+            if not path.exists():
+                return None
+            return json.loads(path.read_text())
+
+    def list_files(self, category: str, suffix: str = ".json") -> List[str]:
+        """List all files in a category"""
+        if self.use_gcs:
+            prefix = f"{category}/"
+            blobs = self.bucket.list_blobs(prefix=prefix)
+            return [blob.name.split('/')[-1] for blob in blobs if blob.name.endswith(suffix)]
+        else:
+            if category == "boards":
+                directory = self.boards_dir
+            elif category == "posts":
+                directory = self.posts_dir
+            elif category == "tracking":
+                directory = self.tracking_dir
+            else:
+                raise ValueError(f"Unknown category: {category}")
+            return [f.name for f in directory.glob(f"*{suffix}")]
+
+    def delete_file(self, category: str, filename: str):
+        """Delete a file"""
+        if self.use_gcs:
+            blob = self.bucket.blob(self._get_blob_path(category, filename))
+            if blob.exists():
+                blob.delete()
+        else:
+            path = self._get_local_path(category, filename)
+            if path.exists():
+                path.unlink()
+
+# Initialize storage backend
+storage_backend = StorageBackend()
 
 # Reddit OAuth configuration
 REDDIT_CLIENT_ID = get_secret("REDDIT_CLIENT_ID_SECRET") or os.getenv("REDDIT_CLIENT_ID")
@@ -296,17 +386,12 @@ llm_filter = LLMFilter()
 def index():
     """Home page showing all boards"""
     boards = []
-    for board_file in BOARDS_DIR.glob("*.json"):
-        with open(board_file) as f:
-            board = json.load(f)
-
+    for board_filename in storage_backend.list_files("boards"):
+        board = storage_backend.load_json("boards", board_filename)
+        if board:
             # Count posts for this board
-            posts_file = POSTS_DIR / f"{board['id']}.json"
-            post_count = 0
-            if posts_file.exists():
-                with open(posts_file) as pf:
-                    posts = json.load(pf)
-                    post_count = len(posts)
+            posts = storage_backend.load_json("posts", f"{board['id']}.json")
+            post_count = len(posts) if posts else 0
 
             board['post_count'] = post_count
             boards.append(board)
@@ -441,9 +526,7 @@ def create_board():
         }
 
         # Save board configuration
-        board_file = BOARDS_DIR / f"{board_id}.json"
-        with open(board_file, 'w') as f:
-            json.dump(board_data, f, indent=2)
+        storage_backend.save_json("boards", f"{board_id}.json", board_data)
 
         # Start background polling task
         start_board_task(board_id, frequency)
@@ -457,17 +540,10 @@ def create_board():
 @app.route('/board/<board_id>/delete', methods=['POST'])
 def delete_board(board_id: str):
     """Delete a board"""
-    board_file = BOARDS_DIR / f"{board_id}.json"
-    posts_file = POSTS_DIR / f"{board_id}.json"
-    tracking_file = TRACKING_DIR / f"{board_id}.json"
-
     # Delete files
-    if board_file.exists():
-        board_file.unlink()
-    if posts_file.exists():
-        posts_file.unlink()
-    if tracking_file.exists():
-        tracking_file.unlink()
+    storage_backend.delete_file("boards", f"{board_id}.json")
+    storage_backend.delete_file("posts", f"{board_id}.json")
+    storage_backend.delete_file("tracking", f"{board_id}.json")
 
     logger.info(f"Deleted board: {board_id}")
     return redirect(url_for('index'))
@@ -476,12 +552,9 @@ def delete_board(board_id: str):
 @app.route('/board/<board_id>/edit', methods=['GET', 'POST'])
 def edit_board(board_id: str):
     """Edit a board's filter criteria and subreddits"""
-    board_file = BOARDS_DIR / f"{board_id}.json"
-    if not board_file.exists():
+    board = storage_backend.load_json("boards", f"{board_id}.json")
+    if not board:
         return "Board not found", 404
-
-    with open(board_file) as f:
-        board = json.load(f)
 
     if request.method == 'POST':
         # Update filter criteria
@@ -496,8 +569,7 @@ def edit_board(board_id: str):
             subreddits = [s.strip() for s in subreddits_raw]
         board['subreddits'] = subreddits
 
-        with open(board_file, 'w') as f:
-            json.dump(board, f, indent=2)
+        storage_backend.save_json("boards", f"{board_id}.json", board)
 
         logger.info(f"Updated board: {board['name']} (ID: {board_id})")
         return redirect(url_for('view_board_detail', board_id=board_id))
@@ -509,19 +581,14 @@ def edit_board(board_id: str):
 def view_board(board_id: str):
     """View board with posts (main view)"""
     # Load board configuration
-    board_file = BOARDS_DIR / f"{board_id}.json"
-    if not board_file.exists():
+    board = storage_backend.load_json("boards", f"{board_id}.json")
+    if not board:
         return "Board not found", 404
 
-    with open(board_file) as f:
-        board = json.load(f)
-
     # Load filtered posts
-    posts_file = POSTS_DIR / f"{board_id}.json"
-    posts = []
-    if posts_file.exists():
-        with open(posts_file) as f:
-            posts = json.load(f)
+    posts = storage_backend.load_json("posts", f"{board_id}.json")
+    if not posts:
+        posts = []
 
     return render_template('board_view.html', board=board, posts=posts)
 
@@ -530,19 +597,14 @@ def view_board(board_id: str):
 def view_board_detail(board_id: str):
     """View board detail page with full info"""
     # Load board configuration
-    board_file = BOARDS_DIR / f"{board_id}.json"
-    if not board_file.exists():
+    board = storage_backend.load_json("boards", f"{board_id}.json")
+    if not board:
         return "Board not found", 404
 
-    with open(board_file) as f:
-        board = json.load(f)
-
     # Load filtered posts
-    posts_file = POSTS_DIR / f"{board_id}.json"
-    posts = []
-    if posts_file.exists():
-        with open(posts_file) as f:
-            posts = json.load(f)
+    posts = storage_backend.load_json("posts", f"{board_id}.json")
+    if not posts:
+        posts = []
 
     pacific_time = datetime.now(ZoneInfo("America/Los_Angeles"))
 
@@ -575,23 +637,20 @@ def start_board_task(board_id: str, frequency_minutes: int):
 def process_board(board_id: str):
     """Process a single board - fetch and filter posts"""
     # Load board configuration
-    board_file = BOARDS_DIR / f"{board_id}.json"
-    with open(board_file) as f:
-        board = json.load(f)
+    board = storage_backend.load_json("boards", f"{board_id}.json")
+    if not board:
+        logger.error(f"Board {board_id} not found")
+        return
 
     # Load tracking data
-    tracking_file = TRACKING_DIR / f"{board_id}.json"
-    tracked_posts = {}
-    if tracking_file.exists():
-        with open(tracking_file) as f:
-            tracked_posts = json.load(f)
+    tracked_posts = storage_backend.load_json("tracking", f"{board_id}.json")
+    if not tracked_posts:
+        tracked_posts = {}
 
     # Load existing filtered posts
-    posts_file = POSTS_DIR / f"{board_id}.json"
-    filtered_posts = []
-    if posts_file.exists():
-        with open(posts_file) as f:
-            filtered_posts = json.load(f)
+    filtered_posts = storage_backend.load_json("posts", f"{board_id}.json")
+    if not filtered_posts:
+        filtered_posts = []
 
     # Fetch and filter posts from each subreddit
     new_posts_count = 0
@@ -617,29 +676,26 @@ def process_board(board_id: str):
                 new_posts_count += 1
 
                 # Save filtered posts immediately to prevent data loss
-                with open(posts_file, 'w') as f:
-                    json.dump(filtered_posts, f, indent=2)
+                storage_backend.save_json("posts", f"{board_id}.json", filtered_posts)
 
             # Mark as tracked
             tracked_posts[post_id] = datetime.now(ZoneInfo("America/Los_Angeles")).isoformat()
 
             # Save tracking data immediately to prevent reprocessing
-            with open(tracking_file, 'w') as f:
-                json.dump(tracked_posts, f, indent=2)
+            storage_backend.save_json("tracking", f"{board_id}.json", tracked_posts)
 
     # Update board last_check time
     board['last_check'] = datetime.now(ZoneInfo("America/Los_Angeles")).isoformat()
-    with open(board_file, 'w') as f:
-        json.dump(board, f, indent=2)
+    storage_backend.save_json("boards", f"{board_id}.json", board)
 
     logger.info(f"Processed board {board['name']}: {new_posts_count} new posts found")
 
 
 if __name__ == '__main__':
     # Start background tasks for all existing boards
-    for board_file in BOARDS_DIR.glob("*.json"):
-        with open(board_file) as f:
-            board = json.load(f)
+    for board_filename in storage_backend.list_files("boards"):
+        board = storage_backend.load_json("boards", board_filename)
+        if board:
             start_board_task(board['id'], board['frequency_minutes'])
 
     port = int(os.getenv('PORT', 5000))
