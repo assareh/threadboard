@@ -174,6 +174,13 @@ app.config['SECRET_KEY'] = get_secret("SECRET_KEY_SECRET") or os.getenv('SECRET_
 # Global state for background tasks
 board_tasks = {}
 
+# Cache for subreddits (to avoid hitting Reddit API too often)
+subreddits_cache = {
+    'data': None,
+    'timestamp': 0
+}
+SUBREDDITS_CACHE_TTL = 3600  # 1 hour in seconds
+
 
 class RedditAPI:
     """Handle Reddit API interactions"""
@@ -402,7 +409,16 @@ def index():
 
 @app.route('/api/subreddits')
 def get_subreddits():
-    """Fetch popular subreddits from Reddit API"""
+    """Fetch popular subreddits from Reddit API (with caching)"""
+    global subreddits_cache
+
+    # Check if cache is still valid
+    current_time = time.time()
+    if subreddits_cache['data'] and (current_time - subreddits_cache['timestamp']) < SUBREDDITS_CACHE_TTL:
+        logger.info(f"Returning {len(subreddits_cache['data'])} cached subreddits")
+        return jsonify(subreddits_cache['data'])
+
+    # Cache expired or empty, fetch from Reddit
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (compatible; Threadboard/1.0; +https://threadboard.cc)'
@@ -422,11 +438,21 @@ def get_subreddits():
                     'text': display_name
                 })
 
-        logger.info(f"Fetched {len(subreddits)} subreddits from Reddit")
+        # Update cache
+        subreddits_cache['data'] = subreddits
+        subreddits_cache['timestamp'] = current_time
+
+        logger.info(f"Fetched and cached {len(subreddits)} subreddits from Reddit")
         return jsonify(subreddits)
     except Exception as e:
         logger.error(f"Error fetching subreddits: {e}")
-        # Return a basic fallback list
+
+        # If we have stale cache, return it
+        if subreddits_cache['data']:
+            logger.info(f"Returning stale cache ({len(subreddits_cache['data'])} subreddits)")
+            return jsonify(subreddits_cache['data'])
+
+        # Otherwise return fallback list
         fallback = ['AskReddit', 'news', 'worldnews', 'funny', 'gaming', 'aww', 'pics', 'science',
                    'technology', 'movies', 'music', 'books', 'fitness', 'programming']
         return jsonify([{'value': sub, 'text': sub} for sub in fallback])
