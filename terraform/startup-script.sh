@@ -78,7 +78,23 @@ echo "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin https:
 echo "Docker authentication configured successfully"
 
 # ============================================================================
-# SECTION 5: DOCKER COMPOSE CONFIGURATION
+# SECTION 5: GENERATE SSL CERTIFICATES
+# ============================================================================
+echo ""
+echo "=== Generating Self-Signed SSL Certificates ==="
+
+mkdir -p /var/lib/app/certs
+
+# Generate self-signed certificate for HTTPS
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /var/lib/app/certs/key.pem \
+  -out /var/lib/app/certs/cert.pem \
+  -subj "/C=US/ST=State/L=City/O=Threadboard/CN=threadboard.cc"
+
+echo "SSL certificates generated successfully"
+
+# ============================================================================
+# SECTION 6: DOCKER COMPOSE CONFIGURATION
 # ============================================================================
 echo ""
 echo "=== Creating Docker Compose Configuration ==="
@@ -93,7 +109,7 @@ services:
     container_name: threadboard
     ports:
       - "80:5000"
-      - "443:5000"
+      - "443:5443"
     environment:
       - REDDIT_CLIENT_ID_SECRET=${reddit_client_id_secret}
       - REDDIT_CLIENT_SECRET_SECRET=${reddit_client_secret_secret}
@@ -102,8 +118,12 @@ services:
       - GOOGLE_CLOUD_PROJECT=${project_id}
       - USE_GEMINI=true
       - PORT=5000
+      - SSL_PORT=5443
+      - SSL_CERT=/app/certs/cert.pem
+      - SSL_KEY=/app/certs/key.pem
     volumes:
       - /var/lib/app/data:/app/data
+      - /var/lib/app/certs:/app/certs:ro
     restart: unless-stopped
     logging:
       driver: "gcplogs"

@@ -94,9 +94,12 @@ class HealthCheckFilter:
 if __name__ == "__main__":
     optimal_config = get_optimal_config()
     port = int(os.getenv("PORT", 5000))
+    ssl_port = int(os.getenv("SSL_PORT", 5443))
+    ssl_cert = os.getenv("SSL_CERT")
+    ssl_key = os.getenv("SSL_KEY")
 
+    # Base configuration
     gunicorn_options = {
-        "bind": f"0.0.0.0:{port}",
         "worker_class": "gthread",  # Enable multi-threading for I/O-bound app
         "timeout": 30,
         "graceful_timeout": 55,
@@ -109,5 +112,20 @@ if __name__ == "__main__":
         **optimal_config,
     }
 
-    print(f"Starting Gunicorn on port {port} with configuration: {optimal_config}")
+    # Check if SSL is configured
+    if ssl_cert and ssl_key and os.path.exists(ssl_cert) and os.path.exists(ssl_key):
+        # Bind to both HTTP and HTTPS
+        gunicorn_options["bind"] = [
+            f"0.0.0.0:{port}",
+            f"0.0.0.0:{ssl_port}"
+        ]
+        gunicorn_options["certfile"] = ssl_cert
+        gunicorn_options["keyfile"] = ssl_key
+        print(f"Starting Gunicorn with SSL on ports {port} (HTTP) and {ssl_port} (HTTPS)")
+    else:
+        # HTTP only
+        gunicorn_options["bind"] = f"0.0.0.0:{port}"
+        print(f"Starting Gunicorn on port {port} (HTTP only)")
+
+    print(f"Configuration: {optimal_config}")
     StandaloneApplication(application, gunicorn_options).run()
