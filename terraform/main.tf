@@ -324,14 +324,14 @@ resource "google_project_iam_member" "cloudbuild_artifacts_writer" {
 data "cloudflare_zone" "zone" {
   count = var.cloudflare_zone_id != "" ? 1 : 0
 
-  zone_id = var.cloudflare_zone_id
+  name = var.cloudflare_zone_id
 }
 
 # Cloudflare DNS record (optional - only created if cloudflare_zone_id is provided)
 resource "cloudflare_record" "threadboard" {
   count = var.cloudflare_zone_id != "" ? 1 : 0
 
-  zone_id = var.cloudflare_zone_id
+  zone_id = data.cloudflare_zone.zone[0].id
   name    = var.cloudflare_record_name
   value   = google_compute_address.threadboard_static_ip.address
   type    = "A"
