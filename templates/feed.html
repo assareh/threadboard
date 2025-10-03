@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}{{ feed.name }} - Threadboard{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .feed-info {
+        background: var(--bg-secondary);
+        padding: 24px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .feed-info h2 {
+        margin: 0 0 16px 0;
+        color: var(--accent-color);
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+    }
+
+    .info-item {
+        color: var(--text-secondary);
+        font-size: 0.9em;
+    }
+
+    .info-item strong {
+        color: var(--text-primary);
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .subreddit-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 12px 0;
+    }
+
+    .subreddit-tag {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        border: 1px solid var(--border-color);
+    }
+
+    .filter-box {
+        background: var(--bg-tertiary);
+        padding: 16px;
+        border-radius: 6px;
+        margin: 16px 0;
+        border-left: 4px solid var(--accent-color);
+    }
+
+    .filter-box h4 {
+        margin: 0 0 8px 0;
+        color: var(--text-primary);
+        font-size: 0.95em;
+    }
+
+    .filter-box p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+
+    .post {
+        background: var(--bg-secondary);
+        padding: 24px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .post-header {
+        border-bottom: 2px solid var(--accent-color);
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+    }
+
+    .post-header h3 {
+        margin: 0 0 8px 0;
+        color: var(--text-primary);
+    }
+
+    .post-meta {
+        font-size: 0.9em;
+        color: var(--text-secondary);
+    }
+
+    .post-link {
+        color: var(--link-color);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .post-link:hover {
+        text-decoration: underline;
+    }
+
+    .body-box {
+        background: var(--bg-tertiary);
+        padding: 16px;
+        border-radius: 8px;
+        margin: 16px 0;
+        white-space: pre-line;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .reason-box {
+        background: var(--bg-tertiary);
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin: 12px 0;
+        border-left: 4px solid var(--accent-color);
+    }
+
+    .reason-box strong {
+        color: var(--text-primary);
+        font-size: 0.9em;
+    }
+
+    .reason-box span {
+        color: var(--text-secondary);
+        font-size: 0.9em;
+    }
+
+    .flair {
+        display: inline-block;
+        background: var(--accent-color);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: 500;
+        margin-left: 8px;
+    }
+
+    .stats-bar {
+        display: flex;
+        gap: 24px;
+        padding: 16px 0;
+        border-top: 1px solid var(--border-color);
+        margin-top: 16px;
+    }
+
+    .stat {
+        color: var(--text-secondary);
+        font-size: 0.9em;
+    }
+
+    .stat strong {
+        color: var(--text-primary);
+        font-size: 1.2em;
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="feed-info">
+    <h2>{{ feed.name }}</h2>
+
+    <div class="subreddit-list">
+        {% for subreddit in feed.subreddits %}
+        <a href="https://reddit.com/r/{{ subreddit }}" target="_blank" class="subreddit-tag">r/{{ subreddit }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="filter-box">
+        <h4>Filter Criteria:</h4>
+        <p>"{{ feed.filter_prompt }}"</p>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-item">
+            <strong>Check Frequency</strong>
+            Every {{ feed.frequency_minutes }} minutes
+        </div>
+        <div class="info-item">
+            <strong>Created</strong>
+            {{ feed.created_at[:19] }}
+        </div>
+        {% if feed.last_check %}
+        <div class="info-item">
+            <strong>Last Checked</strong>
+            {{ feed.last_check[:19] }}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat">
+            <strong>{{ posts|length }}</strong>
+            Posts Found
+        </div>
+    </div>
+</div>
+
+{% if posts %}
+    {% for post in posts|reverse %}
+    <div class="post">
+        <div class="post-header">
+            <h3>{{ post.title }}</h3>
+            <div class="post-meta">
+                {% if post.subreddit_prefixed %}
+                <a href="https://reddit.com/{{ post.subreddit_prefixed }}" target="_blank" class="post-link">{{ post.subreddit_prefixed }}</a> •
+                {% elif post.subreddit %}
+                <a href="https://reddit.com/r/{{ post.subreddit }}" target="_blank" class="post-link">r/{{ post.subreddit }}</a> •
+                {% endif %}
+                <a href="https://reddit.com/u/{{ post.author }}" target="_blank" class="post-link">u/{{ post.author }}</a>
+                {% if post.flair %}<span class="flair">{{ post.flair }}</span>{% endif %} •
+                <strong>Published:</strong> {{ post.published }} •
+                <a href="{{ post.link }}" target="_blank" class="post-link">Read on Reddit →</a>
+            </div>
+        </div>
+
+        {% if post.reason %}
+        <div class="reason-box">
+            <strong>Why this matches:</strong> <span>{{ post.reason }}</span>
+        </div>
+        {% endif %}
+
+        {% if post.body %}
+        <div class="body-box">{{ post.body|trim }}</div>
+        {% endif %}
+
+        {% if post.timestamp %}
+        <p class="timestamp">Found: {{ post.timestamp[:19] }}</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state">
+        <h3>No posts found yet</h3>
+        <p>The feed will check for new posts every {{ feed.frequency_minutes }} minutes.</p>
+        <p class="timestamp">Last updated: {{ now }}</p>
+    </div>
+{% endif %}
+{% endblock %}
