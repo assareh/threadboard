@@ -32,8 +32,8 @@ variable "gemini_api_key" {
   sensitive   = true
 }
 
-variable "cloudflare_api_token" {
-  description = "Cloudflare API Token (optional - required for DNS configuration)"
+variable "cloudflare_api_key" {
+  description = "Cloudflare API Key (optional - required for DNS configuration)"
   type        = string
   sensitive   = true
   default     = ""
