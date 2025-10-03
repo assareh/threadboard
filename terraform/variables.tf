@@ -48,5 +48,5 @@ variable "cloudflare_zone_id" {
 variable "cloudflare_record_name" {
   description = "DNS record name (e.g., 'threadboard' or '@' for root domain)"
   type        = string
-  default     = "threadboard"
+  default     = "@"
 }
