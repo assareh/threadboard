@@ -25,10 +25,10 @@ output "artifact_registry_url" {
 
 output "app_url" {
   description = "Application URL"
-  value       = var.cloudflare_zone_id != "" ? "https://${var.cloudflare_record_name}.${data.cloudflare_zone.zone[0].name}" : "http://${google_compute_address.threadboard_static_ip.address}"
+  value       = var.cloudflare_zone_id != "" ? "https://${cloudflare_record.threadboard[0].hostname}" : "http://${google_compute_address.threadboard_static_ip.address}"
 }
 
 output "cloudflare_dns_record" {
   description = "Cloudflare DNS record (if configured)"
-  value       = var.cloudflare_zone_id != "" ? "${var.cloudflare_record_name}.${data.cloudflare_zone.zone[0].name}" : "Not configured"
+  value       = var.cloudflare_zone_id != "" ? cloudflare_record.threadboard[0].hostname : "Not configured"
 }
