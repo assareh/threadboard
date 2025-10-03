@@ -92,7 +92,8 @@ services:
     image: ${region}-docker.pkg.dev/${project_id}/threadboard/threadboard:latest
     container_name: threadboard
     ports:
-      - "5000:5000"
+      - "80:5000"
+      - "443:5000"
     environment:
       - REDDIT_CLIENT_ID_SECRET=${reddit_client_id_secret}
       - REDDIT_CLIENT_SECRET_SECRET=${reddit_client_secret_secret}
