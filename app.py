@@ -666,6 +666,11 @@ def process_board(board_id: str):
         logger.error(f"Board {board_id} not found")
         return
 
+    # Update last_check timestamp immediately when processing starts
+    board['last_check'] = datetime.now(ZoneInfo("America/Los_Angeles")).isoformat()
+    storage_backend.save_json("boards", f"{board_id}.json", board)
+    logger.info(f"Started processing board {board['name']}")
+
     # Load tracking data
     tracked_posts = storage_backend.load_json("tracking", f"{board_id}.json")
     if not tracked_posts:
