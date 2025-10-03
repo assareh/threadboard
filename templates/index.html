@@ -4,13 +4,13 @@
 
 {% block extra_styles %}
 <style>
-    .feed-grid {
+    .board-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
         gap: 24px;
     }
 
-    .feed-card {
+    .board-card {
         background: var(--bg-secondary);
         padding: 24px;
         border-radius: 8px;
@@ -19,22 +19,22 @@
         transition: border-color 0.2s;
     }
 
-    .feed-card:hover {
+    .board-card:hover {
         border-color: var(--accent-color);
     }
 
-    .feed-card h3 {
+    .board-card h3 {
         margin: 0 0 12px 0;
         color: var(--accent-color);
     }
 
-    .feed-meta {
+    .board-meta {
         color: var(--text-secondary);
         font-size: 0.9em;
         margin: 8px 0;
     }
 
-    .feed-meta strong {
+    .board-meta strong {
         color: var(--text-primary);
     }
 
@@ -54,7 +54,7 @@
         border: 1px solid var(--border-color);
     }
 
-    .feed-prompt {
+    .board-prompt {
         background: var(--bg-tertiary);
         padding: 12px;
         border-radius: 6px;
@@ -91,10 +91,10 @@
 
 {% block content %}
 {% if feeds %}
-    <div class="feed-grid">
+    <div class="board-grid">
         {% for feed in feeds %}
         <a href="/feed/{{ feed.id }}" style="text-decoration: none;">
-            <div class="feed-card">
+            <div class="board-card">
                 <h3>{{ feed.name }}</h3>
 
                 <div class="subreddit-list">
@@ -103,20 +103,20 @@
                     {% endfor %}
                 </div>
 
-                <div class="feed-prompt">
+                <div class="board-prompt">
                     "{{ feed.filter_prompt }}"
                 </div>
 
-                <div class="feed-meta">
+                <div class="board-meta">
                     <strong>Check frequency:</strong> Every {{ feed.frequency_minutes }} minutes
                 </div>
 
                 {% if feed.last_check %}
-                <div class="feed-meta timestamp">
+                <div class="board-meta timestamp">
                     Last checked: {{ feed.last_check[:19] }}
                 </div>
                 {% else %}
-                <div class="feed-meta timestamp">
+                <div class="board-meta timestamp">
                     Not checked yet
                 </div>
                 {% endif %}
@@ -125,7 +125,7 @@
         {% endfor %}
 
         <a href="/create" style="text-decoration: none;">
-            <div class="feed-card create-card">
+            <div class="board-card create-card">
                 <div class="create-icon">+</div>
                 <h3>Create New Board</h3>
             </div>

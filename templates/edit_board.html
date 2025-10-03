@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Create New Board - Threadboard{% endblock %}
+{% block title %}Edit Board - Threadboard{% endblock %}
 
 {% block extra_styles %}
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.default.css" rel="stylesheet">
@@ -66,6 +66,11 @@
         color: var(--text-primary);
     }
 
+    .form-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
     .form-card {
         background: var(--bg-secondary);
         padding: 32px;
@@ -84,24 +89,34 @@
         margin-top: 24px;
     }
 
-    .example-box {
+    .board-info {
         background: var(--bg-tertiary);
         padding: 16px;
         border-radius: 6px;
+        margin-bottom: 24px;
         border-left: 4px solid var(--accent-color);
-        margin-top: 8px;
     }
 
-    .example-box h4 {
+    .board-info h4 {
         margin: 0 0 8px 0;
         color: var(--text-primary);
-        font-size: 0.95em;
     }
 
-    .example-box p {
+    .board-info p {
         margin: 4px 0;
         color: var(--text-secondary);
         font-size: 0.9em;
+    }
+
+    .subreddit-tag {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        border: 1px solid var(--border-color);
+        display: inline-block;
+        margin: 4px 4px 4px 0;
     }
 </style>
 {% endblock %}
@@ -109,12 +124,14 @@
 {% block content %}
 <div class="form-container">
     <div class="form-card">
-        <h2>Create Custom Board</h2>
-        <p style="color: var(--text-secondary); margin-bottom: 24px;">
-            Create a personalized Reddit page that uses AI to filter posts based on your interests.
-        </p>
+        <h2>Edit Board: {{ feed.name }}</h2>
 
-        <form method="POST" action="/create">
+        <div class="board-info">
+            <h4>Current Configuration</h4>
+            <p style="margin-top: 12px;"><strong>Check Frequency:</strong> Every {{ feed.frequency_minutes }} minutes</p>
+        </div>
+
+        <form method="POST" action="/feed/{{ feed.id }}/edit">
             <div class="form-group">
                 <label for="subreddits">Subreddits to Monitor</label>
                 <select
@@ -124,33 +141,11 @@
                     placeholder="Type to search subreddits..."
                     required
                 hidden>
+                    {% for subreddit in feed.subreddits %}
+                    <option value="{{ subreddit }}" selected>{{ subreddit }}</option>
+                    {% endfor %}
                 </select>
-                <small>Enter or select subreddits to monitor</small>
-            </div>
-
-            <div class="form-group">
-                <label for="feed_name">Board Name</label>
-                <input
-                    type="text"
-                    id="feed_name"
-                    name="feed_name"
-                    placeholder="e.g., angry-hippo"
-                    required
-                >
-                <small>Give your board a name (auto-generated suggestion provided)</small>
-            </div>
-
-            <div class="form-group">
-                <label for="frequency">Check Frequency (minutes)</label>
-                <input
-                    type="number"
-                    id="frequency"
-                    name="frequency"
-                    value="180"
-                    readonly
-                    required
-                >
-                <small>Boards are checked every 180 minutes (3 hours).</small>
+                <small>Edit the subreddits to monitor</small>
             </div>
 
             <div class="form-group">
@@ -161,26 +156,18 @@
                         name="filter_prompt"
                         placeholder="e.g., identify reviews of niche / indie perfumes (think nishane, NOT Dior, Boss, etc)"
                         required
-                    ></textarea>
+                    >{{ feed.filter_prompt }}</textarea>
                     <button type="button" id="generate_btn" class="btn" style="position: absolute; bottom: 12px; right: 12px; padding: 6px 16px; font-size: 0.9em;">
                         <span id="generate_text">✨ Generate</span>
                         <span id="generate_loading" style="display: none;">⏳ Generating...</span>
                     </button>
                 </div>
                 <small>Describe what you're looking for in a few words, then click Generate to create a detailed AI filter. Or write your own custom filter criteria.</small>
-
-                <div class="example-box">
-                    <h4>Example Inputs:</h4>
-                    <p><strong>Tech Deals:</strong> "laptop or computer hardware deals, gaming laptops and productivity tools"</p>
-                    <p><strong>Learning Resources:</strong> "free web development courses, React, TypeScript, Node.js tutorials"</p>
-                    <p><strong>Job Opportunities:</strong> "remote software engineering jobs, senior Python or Go positions"</p>
-                    <p><strong>Fragrance Reviews:</strong> "niche indie perfume reviews, not designer brands"</p>
-                </div>
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn">Create Board</button>
-                <a href="/" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn">Save Changes</button>
+                <a href="/feed/{{ feed.id }}" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>
@@ -188,55 +175,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
-    const adjectives = ['happy', 'sleepy', 'grumpy', 'brave', 'clever', 'mighty', 'swift', 'cosmic', 'electric', 'golden', 'silver', 'crimson', 'azure', 'emerald', 'peaceful', 'fierce', 'gentle', 'wild', 'fancy', 'jolly', 'lazy', 'eager', 'proud', 'quiet', 'loud', 'bouncy', 'dizzy', 'silly', 'wise', 'crafty', 'noble', 'rusty', 'shiny', 'foggy', 'sunny', 'stormy', 'breezy', 'frosty', 'dusty', 'misty', 'angry', 'calm', 'bold', 'shy', 'zippy', 'spunky', 'fuzzy', 'sneaky', 'jumpy'];
-    const animals = ['hippo', 'panda', 'tiger', 'eagle', 'wolf', 'bear', 'fox', 'lion', 'otter', 'falcon', 'badger', 'raven', 'lynx', 'gecko', 'cobra', 'shark', 'whale', 'dolphin', 'penguin', 'koala', 'moose', 'bison', 'hawk', 'owl', 'ferret', 'beaver', 'rabbit', 'squirrel', 'raccoon', 'possum', 'chipmunk', 'hedgehog', 'armadillo', 'platypus', 'walrus', 'narwhal', 'octopus', 'jellyfish', 'starfish', 'sealion', 'meerkat', 'lemur', 'sloth', 'iguana', 'toucan', 'parrot', 'flamingo', 'pelican'];
-
-    // Curated list of popular subreddits (sorted alphabetically)
-    const popularSubreddits = [
-        'AMA', 'AdviceAnimals', 'Android', 'AnimalsBeingBros', 'Anime', 'ArtificialInteligence', 'Art', 'AskHistorians',
-        'AskMen', 'AskReddit', 'AskScience', 'AskWomen', 'atheism', 'aww',
-        'baseball', 'beauty', 'bestof', 'bioinformatics', 'Bitcoin', 'BikiniBottomTwitter', 'blackmagicfuckery', 'boardgames',
-        'bodyweightfitness', 'books', 'Boston', 'buildapc', 'business',
-        'cats', 'ChangeMyView', 'chicago', 'comics', 'coolguides', 'crafts', 'CryptoCurrency', 'cscareerquestions',
-        'daddit', 'DadReflexes', 'dankmemes', 'dataisbeautiful', 'datascience', 'datingoverthirty', 'Destiny', 'devops',
-        'DIY', 'dogecoin', 'dogs',
-        'earthporn', 'EatCheapAndHealthy', 'education', 'Entrepreneur', 'ethereum', 'explainlikeimfive',
-        'Fallout', 'FantasyPL', 'femalefashionadvice', 'fiaustralia', 'Fitness', 'food', 'footballmanagergames', 'forhire',
-        'france', 'freelance', 'frugal', 'frugalmalefashion', 'funny', 'Futurology',
-        'gadgets', 'Games', 'gaming', 'gifs', 'golang', 'GetMotivated', 'graphic_design',
-        'hardware', 'Health', 'HistoryMemes', 'HolUp', 'HomeImprovement', 'homelab', 'houston',
-        'IdentityV', 'indiegames', 'InternetIsBeautiful', 'investing', 'ios', 'Italy',
-        'java', 'javascript', 'Jokes', 'JusticeServed',
-        'LAClippers', 'leagueoflegends', 'LearnJapanese', 'learnprogramming', 'LegalAdvice', 'LifeProTips', 'linux',
-        'listentothis', 'LiverpoolFC', 'london', 'LosAngeles', 'loseit',
-        'MachineLearning', 'malefashionadvice', 'MapPorn', 'marvelstudios', 'me_irl', 'memes', 'melbourne', 'mexico',
-        'Minecraft', 'movies', 'music', 'nba', 'nfl', 'news', 'news', 'nextfuckinglevel', 'nintendo', 'nottheonion', 'nyc',
-        'oddlysatisfying', 'OutOfTheLoop', 'Overwatch',
-        'parenting', 'PewdiepieSubmissions', 'personalfinance', 'philosophy', 'photography', 'photoshopbattles', 'pics',
-        'playstation', 'podcasts', 'politics', 'pokemongo', 'PresidentialRaceMemes', 'privacy', 'productivity', 'programming',
-        'ProgrammerHumor', 'python',
-        'rarepuppers', 'reactjs', 'Recipes', 'relationships', 'remotework', 'running', 'rust',
-        'sanfrancisco', 'SandersForPresident', 'science', 'Seattle', 'selfimprovement', 'sex', 'Showerthoughts',
-        'skateboarding', 'smallbusiness', 'soccer', 'space', 'sports', 'startups', 'StarWars', 'stocks', 'Swimming', 'sydney',
-        'technology', 'television', 'Tennis', 'TheSimpsons', 'tifu', 'todayilearned', 'toronto', 'travel', 'trees',
-        'typescript', 'UpliftingNews',
-        'vegan', 'vancouver', 'videos',
-        'wallstreetbets', 'WatchPeopleDieInside', 'webdev', 'whatisthisthing', 'WholeSomeMemes', 'woodworking', 'worldnews',
-        'Xbox', 'xboxone',
-        'YouShouldKnow'
-    ];
-
-    function generateRandomName() {
-        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-        const animal = animals[Math.floor(Math.random() * animals.length)];
-        return adj + '-' + animal;
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
-        // Initialize feed name
-        const feedNameInput = document.getElementById('feed_name');
-        feedNameInput.value = generateRandomName();
-
         // Initialize Tom Select with dynamic loading from Reddit API
         const tomSelectInstance = new TomSelect('#subreddits', {
             plugins: {
@@ -246,7 +185,7 @@
             },
             create: true,
             maxItems: 20,
-            maxOptions: null, // Show all options (no limit)
+            maxOptions: null,
             valueField: 'value',
             labelField: 'text',
             searchField: 'text',

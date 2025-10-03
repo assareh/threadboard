@@ -1,7 +1,7 @@
 """
-Threadboard - Generic Reddit Feed Filter Platform
+Threadboard - Generic Reddit Board Filter Platform
 
-A Flask application that allows users to create custom filtered Reddit feeds.
+A Flask application that allows users to create custom filtered Reddit boards.
 """
 
 import os
@@ -265,7 +265,7 @@ llm_filter = LLMFilter()
 
 @app.route('/')
 def index():
-    """Home page showing all feeds"""
+    """Home page showing all boards"""
     feeds = []
     for feed_file in FEEDS_DIR.glob("*.json"):
         with open(feed_file) as f:
@@ -306,9 +306,85 @@ def get_subreddits():
         return jsonify([{'value': sub, 'text': sub} for sub in fallback])
 
 
+@app.route('/api/generate-filter', methods=['POST'])
+def generate_filter():
+    """Generate detailed filter criteria from user input using Gemini"""
+    try:
+        data = request.get_json()
+        user_input = data.get('user_input', '')
+
+        if not user_input:
+            return jsonify({'error': 'No input provided'}), 400
+
+        # Use Gemini to expand the user input into detailed filter criteria
+        if USE_GEMINI and GEMINI_API_KEY:
+            import google.generativeai as genai
+            genai.configure(api_key=GEMINI_API_KEY)
+            model = genai.GenerativeModel('gemini-2.5-flash')
+
+            prompt = f"""You are a helpful assistant that creates detailed Reddit post filtering criteria based on user descriptions.
+
+The user wants to filter Reddit posts for: "{user_input}"
+
+Create a comprehensive filtering prompt that will be used by an AI to evaluate Reddit posts. The prompt should:
+
+1. Start with a clear mission statement explaining the role (e.g., "You are a [topic] discovery agent...")
+2. Include a **FOCUS ON:** section with specific criteria, examples, and details about what to look for
+3. Include an **IGNORE:** section with what to skip (low-effort posts, simple questions, etc.)
+4. Include **INPUT:** and **OUTPUT:** sections explaining the format
+5. End with a reminder to be selective
+
+Use the following format as inspiration:
+
+---
+You are a [topic area] discovery agent tasked with identifying interesting and valuable posts on Reddit.
+
+**FOCUS ON:**
+- [Specific criteria 1]
+- [Specific criteria 2]
+- [Detailed descriptions of what makes posts interesting]
+- [Examples of good content types]
+- [Specific brands, products, or topics if relevant]
+
+**IGNORE:**
+- Simple questions or requests for recommendations
+- Low-effort posts without substance
+- "What should I buy?" or "Help me choose" posts
+- Collection photos without detailed commentary
+- Basic purchase questions or shopping advice
+- Posts asking others for suggestions without contributing
+
+**INPUT:** You will receive a Reddit post title and body.
+
+**OUTPUT:** Respond with ONLY a JSON object (no markdown formatting, no code blocks):
+{{
+  "interesting": true/false,
+  "reason": "brief explanation of why this is or isn't interesting"
+}}
+
+Be selective - only mark posts as interesting if they contain substantive, valuable content about [topic].
+---
+
+Now create a similar prompt based on the user's input: "{user_input}"
+
+Return ONLY the generated prompt text, without any additional commentary or wrapping."""
+
+            response = model.generate_content(prompt)
+            filter_criteria = response.text.strip()
+
+            logger.info(f"Generated filter criteria for input: {user_input[:50]}...")
+            return jsonify({'filter_criteria': filter_criteria})
+        else:
+            return jsonify({'error': 'Gemini API not configured'}), 500
+
+    except Exception as e:
+        logger.error(f"Error generating filter: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/create', methods=['GET', 'POST'])
 def create_feed():
-    """Create a new feed"""
+    """Create a new board"""
     if request.method == 'POST':
         feed_name = request.form['feed_name']
         # Handle multi-select - comes as a list from form
@@ -348,13 +424,64 @@ def create_feed():
     return render_template('create_board.html')
 
 
-@app.route('/feed/<feed_id>')
-def view_feed(feed_id: str):
-    """View a specific feed"""
-    # Load feed configuration
+@app.route('/feed/<feed_id>/delete', methods=['POST'])
+def delete_feed(feed_id: str):
+    """Delete a board"""
+    feed_file = FEEDS_DIR / f"{feed_id}.json"
+    posts_file = POSTS_DIR / f"{feed_id}.json"
+    tracking_file = TRACKING_DIR / f"{feed_id}.json"
+
+    # Delete files
+    if feed_file.exists():
+        feed_file.unlink()
+    if posts_file.exists():
+        posts_file.unlink()
+    if tracking_file.exists():
+        tracking_file.unlink()
+
+    logger.info(f"Deleted board: {feed_id}")
+    return redirect(url_for('index'))
+
+
+@app.route('/feed/<feed_id>/edit', methods=['GET', 'POST'])
+def edit_feed(feed_id: str):
+    """Edit a board's filter criteria and subreddits"""
     feed_file = FEEDS_DIR / f"{feed_id}.json"
     if not feed_file.exists():
-        return "Feed not found", 404
+        return "Board not found", 404
+
+    with open(feed_file) as f:
+        feed = json.load(f)
+
+    if request.method == 'POST':
+        # Update filter criteria
+        feed['filter_prompt'] = request.form['filter_prompt']
+
+        # Update subreddits
+        subreddits_raw = request.form.getlist('subreddits')
+        # If it's a single comma-separated string (fallback), split it
+        if len(subreddits_raw) == 1 and ',' in subreddits_raw[0]:
+            subreddits = [s.strip() for s in subreddits_raw[0].split(',')]
+        else:
+            subreddits = [s.strip() for s in subreddits_raw]
+        feed['subreddits'] = subreddits
+
+        with open(feed_file, 'w') as f:
+            json.dump(feed, f, indent=2)
+
+        logger.info(f"Updated board: {feed['name']} (ID: {feed_id})")
+        return redirect(url_for('view_feed', feed_id=feed_id))
+
+    return render_template('edit_board.html', feed=feed)
+
+
+@app.route('/feed/<feed_id>')
+def view_feed(feed_id: str):
+    """View a specific board"""
+    # Load board configuration
+    feed_file = FEEDS_DIR / f"{feed_id}.json"
+    if not feed_file.exists():
+        return "Board not found", 404
 
     with open(feed_file) as f:
         feed = json.load(f)
@@ -377,7 +504,7 @@ def view_feed(feed_id: str):
 
 
 def start_feed_task(feed_id: str, frequency_minutes: int):
-    """Start a background task for a feed"""
+    """Start a background task for a board"""
     def run_feed_loop():
         while True:
             try:
@@ -395,8 +522,8 @@ def start_feed_task(feed_id: str, frequency_minutes: int):
 
 
 def process_feed(feed_id: str):
-    """Process a single feed - fetch and filter posts"""
-    # Load feed configuration
+    """Process a single board - fetch and filter posts"""
+    # Load board configuration
     feed_file = FEEDS_DIR / f"{feed_id}.json"
     with open(feed_file) as f:
         feed = json.load(f)
@@ -458,7 +585,7 @@ def process_feed(feed_id: str):
 
 
 if __name__ == '__main__':
-    # Start background tasks for all existing feeds
+    # Start background tasks for all existing boards
     for feed_file in FEEDS_DIR.glob("*.json"):
         with open(feed_file) as f:
             feed = json.load(f)

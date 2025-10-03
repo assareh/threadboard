@@ -4,7 +4,7 @@
 
 {% block extra_styles %}
 <style>
-    .feed-info {
+    .board-info {
         background: var(--bg-secondary);
         padding: 24px;
         border-radius: 8px;
@@ -12,7 +12,7 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    .feed-info h2 {
+    .board-info h2 {
         margin: 0 0 16px 0;
         color: var(--accent-color);
     }
@@ -166,8 +166,13 @@
 {% endblock %}
 
 {% block content %}
-<div class="feed-info">
-    <h2>{{ feed.name }}</h2>
+<div class="board-info">
+    <h2 style="margin-bottom: 16px;">
+        {{ feed.name }}
+        <form method="POST" action="/feed/{{ feed.id }}/delete" style="display: inline; margin-left: 12px;" onsubmit="return confirm('Are you sure you want to delete this board? This action cannot be undone.');">
+            <button type="submit" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.8em; padding: 0; line-height: 1;" title="Delete board">🗑️</button>
+        </form>
+    </h2>
 
     <div class="subreddit-list">
         {% for subreddit in feed.subreddits %}
@@ -175,9 +180,10 @@
         {% endfor %}
     </div>
 
-    <div class="filter-box">
+    <div class="filter-box" style="position: relative;">
         <h4>Filter Criteria:</h4>
         <p>"{{ feed.filter_prompt }}"</p>
+        <a href="/feed/{{ feed.id }}/edit" class="btn" style="position: absolute; bottom: 12px; right: 12px; padding: 4px 10px; font-size: 0.85em;">Edit</a>
     </div>
 
     <div class="info-grid">
