@@ -404,7 +404,9 @@ def index():
 def get_subreddits():
     """Fetch popular subreddits from Reddit API"""
     try:
-        headers = {'User-Agent': 'Threadboard/1.0'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; Threadboard/1.0; +https://threadboard.cc)'
+        }
         response = requests.get('https://www.reddit.com/subreddits/popular.json?limit=100', headers=headers, timeout=10)
         response.raise_for_status()
 
@@ -428,6 +430,28 @@ def get_subreddits():
         fallback = ['AskReddit', 'news', 'worldnews', 'funny', 'gaming', 'aww', 'pics', 'science',
                    'technology', 'movies', 'music', 'books', 'fitness', 'programming']
         return jsonify([{'value': sub, 'text': sub} for sub in fallback])
+
+
+@app.route('/api/validate-subreddit/<subreddit>')
+def validate_subreddit(subreddit: str):
+    """Check if a subreddit exists"""
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; Threadboard/1.0; +https://threadboard.cc)'
+        }
+        response = requests.get(f'https://www.reddit.com/r/{subreddit}/about.json', headers=headers, timeout=5)
+
+        if response.status_code == 200:
+            data = response.json()
+            # Check if it's actually a valid subreddit
+            if data.get('data', {}).get('display_name'):
+                return jsonify({'exists': True, 'name': data['data']['display_name']})
+
+        return jsonify({'exists': False})
+
+    except Exception as e:
+        logger.error(f"Error validating subreddit {subreddit}: {e}")
+        return jsonify({'exists': False, 'error': str(e)}), 500
 
 
 @app.route('/api/generate-filter', methods=['POST'])

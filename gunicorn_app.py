@@ -114,15 +114,11 @@ if __name__ == "__main__":
 
     # Check if SSL is configured
     if ssl_cert and ssl_key and os.path.exists(ssl_cert) and os.path.exists(ssl_key):
-        # Bind to HTTP (port 5000) and HTTPS (port 5443)
-        # Note: Gunicorn doesn't support mixed HTTP/HTTPS on different ports in one process
-        # So we'll bind HTTPS only and use nginx/caddy for HTTP->HTTPS redirect
-        # For now, bind both ports as HTTPS since Cloudflare will handle the protocol
+        # HTTPS only - Cloudflare handles HTTP->HTTPS redirect
         gunicorn_options["bind"] = f"0.0.0.0:{ssl_port}"
         gunicorn_options["certfile"] = ssl_cert
         gunicorn_options["keyfile"] = ssl_key
         print(f"Starting Gunicorn with SSL on port {ssl_port} (HTTPS)")
-        print(f"Note: HTTP port {port} not bound - Cloudflare should use HTTPS")
     else:
         # HTTP only
         gunicorn_options["bind"] = f"0.0.0.0:{port}"
