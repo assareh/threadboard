@@ -66,11 +66,6 @@
         color: var(--text-primary);
     }
 
-    .form-container {
-        max-width: 1000px;
-        margin: 0 auto;
-    }
-
     .form-card {
         background: var(--bg-secondary);
         padding: 32px;
@@ -122,16 +117,15 @@
 {% endblock %}
 
 {% block content %}
-<div class="form-container">
-    <div class="form-card">
-        <h2>Edit Board: {{ feed.name }}</h2>
+<div class="form-card">
+        <h2>Edit Board: {{ board.name }}</h2>
 
         <div class="board-info">
             <h4>Current Configuration</h4>
-            <p style="margin-top: 12px;"><strong>Check Frequency:</strong> Every {{ feed.frequency_minutes }} minutes</p>
+            <p style="margin-top: 12px;"><strong>Check Frequency:</strong> Every {{ board.frequency_minutes }} minutes</p>
         </div>
 
-        <form method="POST" action="/feed/{{ feed.id }}/edit">
+        <form method="POST" action="/board/{{ board.id }}/edit">
             <div class="form-group">
                 <label for="subreddits">Subreddits to Monitor</label>
                 <select
@@ -141,7 +135,7 @@
                     placeholder="Type to search subreddits..."
                     required
                 hidden>
-                    {% for subreddit in feed.subreddits %}
+                    {% for subreddit in board.subreddits %}
                     <option value="{{ subreddit }}" selected>{{ subreddit }}</option>
                     {% endfor %}
                 </select>
@@ -156,7 +150,7 @@
                         name="filter_prompt"
                         placeholder="e.g., identify reviews of niche / indie perfumes (think nishane, NOT Dior, Boss, etc)"
                         required
-                    >{{ feed.filter_prompt }}</textarea>
+                    >{{ board.filter_prompt }}</textarea>
                     <button type="button" id="generate_btn" class="btn" style="position: absolute; bottom: 12px; right: 12px; padding: 6px 16px; font-size: 0.9em;">
                         <span id="generate_text">✨ Generate</span>
                         <span id="generate_loading" style="display: none;">⏳ Generating...</span>
@@ -167,10 +161,9 @@
 
             <div class="form-actions">
                 <button type="submit" class="btn">Save Changes</button>
-                <a href="/feed/{{ feed.id }}" class="btn btn-secondary">Cancel</a>
+                <a href="/board/{{ board.id }}/detail" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
-    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>

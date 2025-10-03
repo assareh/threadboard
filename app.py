@@ -32,12 +32,12 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
-FEEDS_DIR = DATA_DIR / "feeds"
+BOARDS_DIR = DATA_DIR / "boards"
 POSTS_DIR = DATA_DIR / "posts"
 TRACKING_DIR = DATA_DIR / "tracking"
 
 # Create directories
-for directory in [DATA_DIR, FEEDS_DIR, POSTS_DIR, TRACKING_DIR]:
+for directory in [DATA_DIR, BOARDS_DIR, POSTS_DIR, TRACKING_DIR]:
     directory.mkdir(exist_ok=True)
 
 # Reddit OAuth configuration
@@ -53,7 +53,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Global state for background tasks
-feed_tasks = {}
+board_tasks = {}
 
 
 class RedditAPI:
@@ -266,14 +266,24 @@ llm_filter = LLMFilter()
 @app.route('/')
 def index():
     """Home page showing all boards"""
-    feeds = []
-    for feed_file in FEEDS_DIR.glob("*.json"):
-        with open(feed_file) as f:
-            feed = json.load(f)
-            feeds.append(feed)
+    boards = []
+    for board_file in BOARDS_DIR.glob("*.json"):
+        with open(board_file) as f:
+            board = json.load(f)
 
-    feeds.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-    return render_template('index.html', feeds=feeds)
+            # Count posts for this board
+            posts_file = POSTS_DIR / f"{board['id']}.json"
+            post_count = 0
+            if posts_file.exists():
+                with open(posts_file) as pf:
+                    posts = json.load(pf)
+                    post_count = len(posts)
+
+            board['post_count'] = post_count
+            boards.append(board)
+
+    boards.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+    return render_template('index.html', boards=boards)
 
 
 @app.route('/api/subreddits')
@@ -331,8 +341,7 @@ Create a comprehensive filtering prompt that will be used by an AI to evaluate R
 1. Start with a clear mission statement explaining the role (e.g., "You are a [topic] discovery agent...")
 2. Include a **FOCUS ON:** section with specific criteria, examples, and details about what to look for
 3. Include an **IGNORE:** section with what to skip (low-effort posts, simple questions, etc.)
-4. Include **INPUT:** and **OUTPUT:** sections explaining the format
-5. End with a reminder to be selective
+4. End with a reminder to be selective
 
 Use the following format as inspiration:
 
@@ -353,14 +362,6 @@ You are a [topic area] discovery agent tasked with identifying interesting and v
 - Collection photos without detailed commentary
 - Basic purchase questions or shopping advice
 - Posts asking others for suggestions without contributing
-
-**INPUT:** You will receive a Reddit post title and body.
-
-**OUTPUT:** Respond with ONLY a JSON object (no markdown formatting, no code blocks):
-{{
-  "interesting": true/false,
-  "reason": "brief explanation of why this is or isn't interesting"
-}}
 
 Be selective - only mark posts as interesting if they contain substantive, valuable content about [topic].
 ---
@@ -383,10 +384,10 @@ Return ONLY the generated prompt text, without any additional commentary or wrap
 
 
 @app.route('/create', methods=['GET', 'POST'])
-def create_feed():
+def create_board():
     """Create a new board"""
     if request.method == 'POST':
-        feed_name = request.form['feed_name']
+        board_name = request.form['board_name']
         # Handle multi-select - comes as a list from form
         subreddits_raw = request.form.getlist('subreddits')
         # If it's a single comma-separated string (fallback), split it
@@ -397,12 +398,12 @@ def create_feed():
         frequency = int(request.form['frequency'])
         filter_prompt = request.form['filter_prompt']
 
-        # Generate unique feed ID
-        feed_id = str(uuid.uuid4())
+        # Generate unique board ID
+        board_id = str(uuid.uuid4())
 
-        feed_data = {
-            'id': feed_id,
-            'name': feed_name,
+        board_data = {
+            'id': board_id,
+            'name': board_name,
             'subreddits': subreddits,
             'frequency_minutes': frequency,
             'filter_prompt': filter_prompt,
@@ -410,52 +411,52 @@ def create_feed():
             'last_check': None
         }
 
-        # Save feed configuration
-        feed_file = FEEDS_DIR / f"{feed_id}.json"
-        with open(feed_file, 'w') as f:
-            json.dump(feed_data, f, indent=2)
+        # Save board configuration
+        board_file = BOARDS_DIR / f"{board_id}.json"
+        with open(board_file, 'w') as f:
+            json.dump(board_data, f, indent=2)
 
         # Start background polling task
-        start_feed_task(feed_id, frequency)
+        start_board_task(board_id, frequency)
 
-        logger.info(f"Created new board: {feed_name} (ID: {feed_id})")
-        return redirect(url_for('view_feed', feed_id=feed_id))
+        logger.info(f"Created new board: {board_name} (ID: {board_id})")
+        return redirect(url_for('view_board_detail', board_id=board_id))
 
     return render_template('create_board.html')
 
 
-@app.route('/feed/<feed_id>/delete', methods=['POST'])
-def delete_feed(feed_id: str):
+@app.route('/board/<board_id>/delete', methods=['POST'])
+def delete_board(board_id: str):
     """Delete a board"""
-    feed_file = FEEDS_DIR / f"{feed_id}.json"
-    posts_file = POSTS_DIR / f"{feed_id}.json"
-    tracking_file = TRACKING_DIR / f"{feed_id}.json"
+    board_file = BOARDS_DIR / f"{board_id}.json"
+    posts_file = POSTS_DIR / f"{board_id}.json"
+    tracking_file = TRACKING_DIR / f"{board_id}.json"
 
     # Delete files
-    if feed_file.exists():
-        feed_file.unlink()
+    if board_file.exists():
+        board_file.unlink()
     if posts_file.exists():
         posts_file.unlink()
     if tracking_file.exists():
         tracking_file.unlink()
 
-    logger.info(f"Deleted board: {feed_id}")
+    logger.info(f"Deleted board: {board_id}")
     return redirect(url_for('index'))
 
 
-@app.route('/feed/<feed_id>/edit', methods=['GET', 'POST'])
-def edit_feed(feed_id: str):
+@app.route('/board/<board_id>/edit', methods=['GET', 'POST'])
+def edit_board(board_id: str):
     """Edit a board's filter criteria and subreddits"""
-    feed_file = FEEDS_DIR / f"{feed_id}.json"
-    if not feed_file.exists():
+    board_file = BOARDS_DIR / f"{board_id}.json"
+    if not board_file.exists():
         return "Board not found", 404
 
-    with open(feed_file) as f:
-        feed = json.load(f)
+    with open(board_file) as f:
+        board = json.load(f)
 
     if request.method == 'POST':
         # Update filter criteria
-        feed['filter_prompt'] = request.form['filter_prompt']
+        board['filter_prompt'] = request.form['filter_prompt']
 
         # Update subreddits
         subreddits_raw = request.form.getlist('subreddits')
@@ -464,30 +465,51 @@ def edit_feed(feed_id: str):
             subreddits = [s.strip() for s in subreddits_raw[0].split(',')]
         else:
             subreddits = [s.strip() for s in subreddits_raw]
-        feed['subreddits'] = subreddits
+        board['subreddits'] = subreddits
 
-        with open(feed_file, 'w') as f:
-            json.dump(feed, f, indent=2)
+        with open(board_file, 'w') as f:
+            json.dump(board, f, indent=2)
 
-        logger.info(f"Updated board: {feed['name']} (ID: {feed_id})")
-        return redirect(url_for('view_feed', feed_id=feed_id))
+        logger.info(f"Updated board: {board['name']} (ID: {board_id})")
+        return redirect(url_for('view_board_detail', board_id=board_id))
 
-    return render_template('edit_board.html', feed=feed)
+    return render_template('edit_board.html', board=board)
 
 
-@app.route('/feed/<feed_id>')
-def view_feed(feed_id: str):
-    """View a specific board"""
+@app.route('/board/<board_id>')
+def view_board(board_id: str):
+    """View board with posts (main view)"""
     # Load board configuration
-    feed_file = FEEDS_DIR / f"{feed_id}.json"
-    if not feed_file.exists():
+    board_file = BOARDS_DIR / f"{board_id}.json"
+    if not board_file.exists():
         return "Board not found", 404
 
-    with open(feed_file) as f:
-        feed = json.load(f)
+    with open(board_file) as f:
+        board = json.load(f)
 
     # Load filtered posts
-    posts_file = POSTS_DIR / f"{feed_id}.json"
+    posts_file = POSTS_DIR / f"{board_id}.json"
+    posts = []
+    if posts_file.exists():
+        with open(posts_file) as f:
+            posts = json.load(f)
+
+    return render_template('board_view.html', board=board, posts=posts)
+
+
+@app.route('/board/<board_id>/detail')
+def view_board_detail(board_id: str):
+    """View board detail page with full info"""
+    # Load board configuration
+    board_file = BOARDS_DIR / f"{board_id}.json"
+    if not board_file.exists():
+        return "Board not found", 404
+
+    with open(board_file) as f:
+        board = json.load(f)
+
+    # Load filtered posts
+    posts_file = POSTS_DIR / f"{board_id}.json"
     posts = []
     if posts_file.exists():
         with open(posts_file) as f:
@@ -496,47 +518,47 @@ def view_feed(feed_id: str):
     pacific_time = datetime.now(ZoneInfo("America/Los_Angeles"))
 
     return render_template(
-        'feed.html',
-        feed=feed,
+        'board_detail.html',
+        board=board,
         posts=posts,
         now=pacific_time.strftime('%B %d, %Y at %I:%M %p PT')
     )
 
 
-def start_feed_task(feed_id: str, frequency_minutes: int):
+def start_board_task(board_id: str, frequency_minutes: int):
     """Start a background task for a board"""
-    def run_feed_loop():
+    def run_board_loop():
         while True:
             try:
-                process_feed(feed_id)
+                process_board(board_id)
             except Exception as e:
-                logger.error(f"Error processing feed {feed_id}: {e}")
+                logger.error(f"Error processing board {board_id}: {e}")
 
             time.sleep(frequency_minutes * 60)
 
-    if feed_id not in feed_tasks:
-        thread = Thread(target=run_feed_loop, daemon=True)
+    if board_id not in board_tasks:
+        thread = Thread(target=run_board_loop, daemon=True)
         thread.start()
-        feed_tasks[feed_id] = thread
-        logger.info(f"Started background task for board {feed_id} (every {frequency_minutes} minutes)")
+        board_tasks[board_id] = thread
+        logger.info(f"Started background task for board {board_id} (every {frequency_minutes} minutes)")
 
 
-def process_feed(feed_id: str):
+def process_board(board_id: str):
     """Process a single board - fetch and filter posts"""
     # Load board configuration
-    feed_file = FEEDS_DIR / f"{feed_id}.json"
-    with open(feed_file) as f:
-        feed = json.load(f)
+    board_file = BOARDS_DIR / f"{board_id}.json"
+    with open(board_file) as f:
+        board = json.load(f)
 
     # Load tracking data
-    tracking_file = TRACKING_DIR / f"{feed_id}.json"
+    tracking_file = TRACKING_DIR / f"{board_id}.json"
     tracked_posts = {}
     if tracking_file.exists():
         with open(tracking_file) as f:
             tracked_posts = json.load(f)
 
     # Load existing filtered posts
-    posts_file = POSTS_DIR / f"{feed_id}.json"
+    posts_file = POSTS_DIR / f"{board_id}.json"
     filtered_posts = []
     if posts_file.exists():
         with open(posts_file) as f:
@@ -544,7 +566,7 @@ def process_feed(feed_id: str):
 
     # Fetch and filter posts from each subreddit
     new_posts_count = 0
-    for subreddit in feed['subreddits']:
+    for subreddit in board['subreddits']:
         posts = reddit_api.fetch_posts(subreddit)
 
         for post in posts:
@@ -555,7 +577,7 @@ def process_feed(feed_id: str):
                 continue
 
             # Filter with LLM
-            result = llm_filter.query(post['title'], post['body'], feed['filter_prompt'])
+            result = llm_filter.query(post['title'], post['body'], board['filter_prompt'])
 
             if result and result.get('interesting', False):
                 logger.info(f"✨ Interesting post found in r/{subreddit}: {post['title'][:50]}")
@@ -565,31 +587,31 @@ def process_feed(feed_id: str):
                 filtered_posts.append(post)
                 new_posts_count += 1
 
+                # Save filtered posts immediately to prevent data loss
+                with open(posts_file, 'w') as f:
+                    json.dump(filtered_posts, f, indent=2)
+
             # Mark as tracked
             tracked_posts[post_id] = datetime.now(ZoneInfo("America/Los_Angeles")).isoformat()
 
-    # Save filtered posts
-    with open(posts_file, 'w') as f:
-        json.dump(filtered_posts, f, indent=2)
+            # Save tracking data immediately to prevent reprocessing
+            with open(tracking_file, 'w') as f:
+                json.dump(tracked_posts, f, indent=2)
 
-    # Save tracking data
-    with open(tracking_file, 'w') as f:
-        json.dump(tracked_posts, f, indent=2)
+    # Update board last_check time
+    board['last_check'] = datetime.now(ZoneInfo("America/Los_Angeles")).isoformat()
+    with open(board_file, 'w') as f:
+        json.dump(board, f, indent=2)
 
-    # Update feed last_check time
-    feed['last_check'] = datetime.now(ZoneInfo("America/Los_Angeles")).isoformat()
-    with open(feed_file, 'w') as f:
-        json.dump(feed, f, indent=2)
-
-    logger.info(f"Processed board {feed['name']}: {new_posts_count} new posts found")
+    logger.info(f"Processed board {board['name']}: {new_posts_count} new posts found")
 
 
 if __name__ == '__main__':
     # Start background tasks for all existing boards
-    for feed_file in FEEDS_DIR.glob("*.json"):
-        with open(feed_file) as f:
-            feed = json.load(f)
-            start_feed_task(feed['id'], feed['frequency_minutes'])
+    for board_file in BOARDS_DIR.glob("*.json"):
+        with open(board_file) as f:
+            board = json.load(f)
+            start_board_task(board['id'], board['frequency_minutes'])
 
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)

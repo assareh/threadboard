@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ feed.name }} - Threadboard{% endblock %}
+{% block title %}{{ board.name }} - Threadboard{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -15,6 +15,39 @@
     .board-info h2 {
         margin: 0 0 16px 0;
         color: var(--accent-color);
+    }
+
+    .board-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        gap: 16px;
+    }
+
+    .board-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .board-actions .btn-icon {
+        padding: 4px 8px;
+        background: transparent;
+        color: var(--text-secondary);
+        border: none;
+        cursor: pointer;
+        font-size: 1.2em;
+        transition: color 0.2s;
+        text-decoration: none;
+    }
+
+    .board-actions .btn-icon:hover {
+        color: var(--accent-color);
+    }
+
+    .board-actions form .btn-icon:hover {
+        color: #ff4444;
     }
 
     .info-grid {
@@ -167,38 +200,42 @@
 
 {% block content %}
 <div class="board-info">
-    <h2 style="margin-bottom: 16px;">
-        {{ feed.name }}
-        <form method="POST" action="/feed/{{ feed.id }}/delete" style="display: inline; margin-left: 12px;" onsubmit="return confirm('Are you sure you want to delete this board? This action cannot be undone.');">
-            <button type="submit" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.8em; padding: 0; line-height: 1;" title="Delete board">🗑️</button>
-        </form>
-    </h2>
+    <div class="board-header-row">
+        <h2 style="margin: 0;"><a href="/board/{{ board.id }}/detail" style="text-decoration: none; color: var(--accent-color);">{{ board.name }}</a></h2>
+        <div class="board-actions">
+            <a href="/board/{{ board.id }}" class="btn-icon" title="View board">📄</a>
+            <a href="/board/{{ board.id }}/edit" class="btn-icon" title="Edit board">✏️</a>
+            <form method="POST" action="/board/{{ board.id }}/delete" style="margin: 0;"
+                  onsubmit="return confirm('Are you sure you want to delete this board?');">
+                <button type="submit" class="btn-icon" title="Delete board">🗑️</button>
+            </form>
+        </div>
+    </div>
 
     <div class="subreddit-list">
-        {% for subreddit in feed.subreddits %}
+        {% for subreddit in board.subreddits %}
         <a href="https://reddit.com/r/{{ subreddit }}" target="_blank" class="subreddit-tag">r/{{ subreddit }}</a>
         {% endfor %}
     </div>
 
     <div class="filter-box" style="position: relative;">
         <h4>Filter Criteria:</h4>
-        <p>"{{ feed.filter_prompt }}"</p>
-        <a href="/feed/{{ feed.id }}/edit" class="btn" style="position: absolute; bottom: 12px; right: 12px; padding: 4px 10px; font-size: 0.85em;">Edit</a>
+        <p>"{{ board.filter_prompt }}"</p>
     </div>
 
     <div class="info-grid">
         <div class="info-item">
             <strong>Check Frequency</strong>
-            Every {{ feed.frequency_minutes }} minutes
+            Every {{ board.frequency_minutes }} minutes
         </div>
         <div class="info-item">
             <strong>Created</strong>
-            {{ feed.created_at[:19] }}
+            {{ board.created_at[:19] }}
         </div>
-        {% if feed.last_check %}
+        {% if board.last_check %}
         <div class="info-item">
             <strong>Last Checked</strong>
-            {{ feed.last_check[:19] }}
+            {{ board.last_check[:19] }}
         </div>
         {% endif %}
     </div>
@@ -229,12 +266,6 @@
             </div>
         </div>
 
-        {% if post.reason %}
-        <div class="reason-box">
-            <strong>Why this matches:</strong> <span>{{ post.reason }}</span>
-        </div>
-        {% endif %}
-
         {% if post.body %}
         <div class="body-box">{{ post.body|trim }}</div>
         {% endif %}
@@ -247,7 +278,7 @@
 {% else %}
     <div class="empty-state">
         <h3>No posts found yet</h3>
-        <p>The board will check for new posts every {{ feed.frequency_minutes }} minutes.</p>
+        <p>The board will check for new posts every {{ board.frequency_minutes }} minutes.</p>
         <p class="timestamp">Last updated: {{ now }}</p>
     </div>
 {% endif %}

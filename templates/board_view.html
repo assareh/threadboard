@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ board.name }} - Threadboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: white;
+            --bg-tertiary: #f1f3f5;
+            --text-primary: #111;
+            --text-secondary: #666;
+            --border-color: #dee2e6;
+            --link-color: #4a90e2;
+            --accent-color: #4a90e2;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #242424;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --border-color: #404040;
+            --link-color: #66b3ff;
+            --accent-color: #66b3ff;
+        }
+
+        * {
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background: var(--bg-primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .board-header {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: 8px;
+            margin-bottom: 32px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .board-title-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            gap: 16px;
+        }
+
+        .board-title-section {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .board-header h1 {
+            margin: 0;
+            color: var(--accent-color);
+            font-size: 2em;
+        }
+
+        .post-count-large {
+            color: var(--text-secondary);
+            font-size: 1.2em;
+        }
+
+        .post-count-large strong {
+            color: var(--accent-color);
+        }
+
+        .subreddit-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        .subreddit-tag {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            border: 1px solid var(--border-color);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .subreddit-tag:hover {
+            border-color: var(--accent-color);
+            background: var(--bg-secondary);
+        }
+
+        .board-meta-row {
+            display: flex;
+            gap: 24px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            font-size: 0.9em;
+            color: var(--text-secondary);
+        }
+
+        .board-meta-row strong {
+            color: var(--text-primary);
+        }
+
+        .board-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .board-actions .btn-icon {
+            padding: 4px 8px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: color 0.2s;
+            text-decoration: none;
+        }
+
+        .board-actions .btn-icon:hover {
+            color: var(--accent-color);
+        }
+
+        .post {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .post-header {
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .post-header h3 {
+            margin: 0 0 8px 0;
+            color: var(--text-primary);
+        }
+
+        .post-meta {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+        }
+
+        .post-link {
+            color: var(--link-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .post-link:hover {
+            text-decoration: underline;
+        }
+
+        .body-box {
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            white-space: pre-line;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .flair {
+            display: inline-block;
+            background: var(--accent-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .timestamp {
+            color: var(--text-secondary);
+            font-size: 0.85em;
+            margin-top: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 64px 32px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .empty-state h3 {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .footer {
+            background: var(--bg-secondary);
+            padding: 16px;
+            text-align: center;
+            margin-top: 32px;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+        }
+
+        .footer a {
+            color: var(--link-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .theme-selector {
+            background: var(--bg-secondary);
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+        }
+
+        .theme-selector label {
+            margin-right: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .theme-selector select {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="board-header">
+            <div class="board-title-row">
+                <div class="board-title-section">
+                    <h1>{{ board.name }}</h1>
+                    <div class="post-count-large">
+                        <strong>{{ posts|length }}</strong> posts
+                    </div>
+                </div>
+                <div class="board-actions">
+                    <a href="/board/{{ board.id }}/edit" class="btn-icon" title="Edit board">✏️</a>
+                </div>
+            </div>
+
+            <div class="subreddit-list">
+                {% for subreddit in board.subreddits %}
+                <a href="https://reddit.com/r/{{ subreddit }}" target="_blank" class="subreddit-tag">r/{{ subreddit }}</a>
+                {% endfor %}
+            </div>
+
+            <div class="board-meta-row">
+                <div>
+                    <strong>Check frequency:</strong> Every {{ board.frequency_minutes }} minutes
+                </div>
+                {% if board.last_check %}
+                <div>
+                    <strong>Last checked:</strong> {{ board.last_check[:19] }}
+                </div>
+                {% else %}
+                <div>
+                    <strong>Last checked:</strong> Not checked yet
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if posts %}
+            {% for post in posts|reverse %}
+            <div class="post">
+                <div class="post-header">
+                    <h3>{{ post.title }}</h3>
+                    <div class="post-meta">
+                        {% if post.subreddit_prefixed %}
+                        <a href="https://reddit.com/{{ post.subreddit_prefixed }}" target="_blank" class="post-link">{{ post.subreddit_prefixed }}</a> •
+                        {% elif post.subreddit %}
+                        <a href="https://reddit.com/r/{{ post.subreddit }}" target="_blank" class="post-link">r/{{ post.subreddit }}</a> •
+                        {% endif %}
+                        <a href="https://reddit.com/u/{{ post.author }}" target="_blank" class="post-link">u/{{ post.author }}</a>
+                        {% if post.flair %}<span class="flair">{{ post.flair }}</span>{% endif %} •
+                        <strong>Published:</strong> {{ post.published }} •
+                        <a href="{{ post.link }}" target="_blank" class="post-link">Read on Reddit →</a>
+                    </div>
+                </div>
+
+                {% if post.body %}
+                <div class="body-box">{{ post.body|trim }}</div>
+                {% endif %}
+
+                {% if post.timestamp %}
+                <p class="timestamp">Found: {{ post.timestamp[:19] }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <h3>No posts found yet</h3>
+                <p>The board will check for new posts every {{ board.frequency_minutes }} minutes.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="footer">
+        <a href="/">← Back to Threadboard Home</a>
+    </div>
+
+    <div class="theme-selector">
+        <label for="theme">Theme:</label>
+        <select id="theme" onchange="setTheme(this.value)">
+            <option value="system">System Default</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+        </select>
+    </div>
+
+    <script>
+        function setTheme(theme) {
+            localStorage.setItem('theme', theme);
+            applyTheme(theme);
+        }
+
+        function applyTheme(theme) {
+            if (theme === 'system') {
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', theme);
+            }
+        }
+
+        // Load saved theme or default to system
+        const savedTheme = localStorage.getItem('theme') || 'system';
+        document.getElementById('theme').value = savedTheme;
+        applyTheme(savedTheme);
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (localStorage.getItem('theme') === 'system') {
+                applyTheme('system');
+            }
+        });
+    </script>
+</body>
+</html>

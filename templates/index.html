@@ -28,6 +28,68 @@
         color: var(--accent-color);
     }
 
+    .board-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        gap: 12px;
+    }
+
+    .board-title-section {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex: 1;
+    }
+
+    .board-title {
+        color: var(--accent-color);
+        margin: 0;
+        font-size: 1.5em;
+        transition: opacity 0.2s;
+    }
+
+    .board-title:hover {
+        opacity: 0.8;
+    }
+
+    .board-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .board-actions .btn-icon {
+        padding: 4px 8px;
+        background: transparent;
+        color: var(--text-secondary);
+        border: none;
+        cursor: pointer;
+        font-size: 1.2em;
+        transition: color 0.2s;
+        text-decoration: none;
+    }
+
+    .board-actions .btn-icon:hover {
+        color: var(--accent-color);
+    }
+
+    .board-actions form .btn-icon:hover {
+        color: #ff4444;
+    }
+
+    .post-count {
+        color: var(--text-secondary);
+        font-size: 1.1em;
+        white-space: nowrap;
+    }
+
+    .post-count strong {
+        color: var(--accent-color);
+    }
+
     .board-meta {
         color: var(--text-secondary);
         font-size: 0.9em;
@@ -90,38 +152,55 @@
 {% endblock %}
 
 {% block content %}
-{% if feeds %}
+{% if boards %}
     <div class="board-grid">
-        {% for feed in feeds %}
-        <a href="/feed/{{ feed.id }}" style="text-decoration: none;">
-            <div class="board-card">
-                <h3>{{ feed.name }}</h3>
+        {% for board in boards %}
+        <div class="board-card">
+            <div class="board-header">
+                <div class="board-title-section">
+                    <a href="/board/{{ board.id }}/detail" style="text-decoration: none; color: inherit;">
+                        <h3 class="board-title">{{ board.name }}</h3>
+                    </a>
+                    <div class="post-count">
+                    <a href="/board/{{ board.id }}/detail" style="text-decoration: none; color: inherit;">
+                        <strong>{{ board.post_count if board.post_count is defined else 0 }}</strong> posts
+                    </a>
+                    </div>
+                </div>
+                <div class="board-actions" onclick="event.stopPropagation();">
+                    <a href="/board/{{ board.id }}" class="btn-icon" onclick="event.stopPropagation();" title="View board">📄</a>
+                    <a href="/board/{{ board.id }}/edit" class="btn-icon" onclick="event.stopPropagation();" title="Edit board">✏️</a>
+                    <form method="POST" action="/board/{{ board.id }}/delete" style="margin: 0;"
+                          onsubmit="event.stopPropagation(); return confirm('Are you sure you want to delete this board?');">
+                        <button type="submit" class="btn-icon" title="Delete board">🗑️</button>
+                    </form>
+                </div>
+            </div>
 
-                <div class="subreddit-list">
-                    {% for subreddit in feed.subreddits %}
+            <div class="subreddit-list">
+                    {% for subreddit in board.subreddits %}
                     <span class="subreddit-tag">r/{{ subreddit }}</span>
                     {% endfor %}
                 </div>
 
                 <div class="board-prompt">
-                    "{{ feed.filter_prompt }}"
+                    "{{ board.filter_prompt }}"
                 </div>
 
                 <div class="board-meta">
-                    <strong>Check frequency:</strong> Every {{ feed.frequency_minutes }} minutes
+                    <strong>Check frequency:</strong> Every {{ board.frequency_minutes }} minutes
                 </div>
 
-                {% if feed.last_check %}
+                {% if board.last_check %}
                 <div class="board-meta timestamp">
-                    Last checked: {{ feed.last_check[:19] }}
+                    Last checked: {{ board.last_check[:19] }}
                 </div>
                 {% else %}
                 <div class="board-meta timestamp">
                     Not checked yet
                 </div>
                 {% endif %}
-            </div>
-        </a>
+        </div>
         {% endfor %}
 
         <a href="/create" style="text-decoration: none;">

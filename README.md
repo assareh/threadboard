@@ -1,17 +1,17 @@
 # Threadboard
 
-**Generic Reddit Feed Filter Platform** - Create personalized, AI-filtered Reddit feeds based on your interests.
+**Generic Reddit Board Filter Platform** - Create personalized, AI-filtered Reddit boards based on your interests.
 
 Threadboard is a Flask web application that monitors multiple subreddits and uses Large Language Models (LLMs) to intelligently filter posts based on custom criteria you define. Instead of scrolling through hundreds of posts, let AI curate the content that matters to you.
 
 ## Features
 
-- **Custom Feed Creation**: Build unlimited personalized feeds from any combination of subreddits
+- **Custom Board Creation**: Build unlimited personalized boards from any combination of subreddits
 - **AI-Powered Filtering**: Use natural language to describe what you're interested in
 - **Flexible LLM Support**: Choose between Google Gemini or local LLM (via LM Studio)
 - **Automatic Monitoring**: Background tasks continuously check for new posts
 - **Clean Web Interface**: Modern, responsive UI with dark theme support
-- **Persistent Storage**: All feeds and filtered posts saved locally
+- **Persistent Storage**: All boards and filtered posts saved locally
 - **Reddit OAuth Support**: Optional OAuth for higher rate limits
 
 ## Use Cases
@@ -117,13 +117,13 @@ Higher rate limits are available with Reddit OAuth:
    USE_GEMINI=false
    ```
 
-## Feed Creation Flow
+## Board Creation Flow
 
-1. **Navigate to "Create New Feed"**
+1. **Navigate to "Create New Board"**
 2. **Fill in the form**:
-   - **Feed Name**: Descriptive name (e.g., "Python Jobs")
-   - **Subreddits**: Comma-separated list (e.g., "python,django,flask")
-   - **Check Frequency**: How often to check (5-1440 minutes)
+   - **Board Name**: Descriptive name (e.g., "Python Jobs")
+   - **Subreddits**: Select or type subreddits to monitor
+   - **Check Frequency**: How often to check (hardcoded to 180 minutes)
    - **Filter Criteria**: Natural language description of what you want
 
 3. **Example Filter Criteria**:
@@ -133,9 +133,9 @@ Higher rate limits are available with Reddit OAuth:
    senior-level positions with salary above $100k.
    ```
 
-4. **Submit** - Your feed starts monitoring immediately!
+4. **Submit** - Your board starts monitoring immediately!
 
-5. **View Results** - Click on your feed to see filtered posts
+5. **View Results** - Click on your board to see filtered posts
 
 ## How It Works
 
@@ -143,12 +143,12 @@ Higher rate limits are available with Reddit OAuth:
 
 ```
 ┌─────────────────┐
-│   Flask Web UI  │  ← User creates feeds and views results
+│   Flask Web UI  │  ← User creates boards and views results
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│  Feed Manager   │  ← Manages feed configurations
+│  Board Manager  │  ← Manages board configurations
 └────────┬────────┘
          │
          ▼
@@ -173,13 +173,13 @@ Higher rate limits are available with Reddit OAuth:
 
 ### Process Flow
 
-1. **Feed Creation**: User defines subreddits and filtering criteria
-2. **Background Polling**: Daemon threads check each feed on schedule
+1. **Board Creation**: User defines subreddits and filtering criteria
+2. **Background Polling**: Daemon threads check each board on schedule
 3. **Post Fetching**: Retrieve latest posts from Reddit API
 4. **Duplicate Tracking**: Skip posts that were already evaluated
 5. **LLM Filtering**: Each new post is evaluated against filter criteria
 6. **Storage**: Matching posts saved to JSON files
-7. **Display**: Web UI shows filtered posts with AI reasoning
+7. **Display**: Web UI shows filtered posts
 
 ### Data Storage
 
@@ -187,8 +187,8 @@ All data is stored locally in the `data/` directory:
 
 ```
 data/
-├── feeds/          # Feed configurations (JSON)
-├── posts/          # Filtered posts per feed (JSON)
+├── boards/         # Board configurations (JSON)
+├── posts/          # Filtered posts per board (JSON)
 └── tracking/       # Processed post IDs to avoid duplicates (JSON)
 ```
 
@@ -198,17 +198,19 @@ data/
 
 ```
 threadboard/
-├── app.py                  # Main application
-├── requirements.txt        # Python dependencies
-├── .env.example           # Environment template
-├── .gitignore            # Git ignore rules
-├── templates/            # HTML templates
-│   ├── base.html        # Base template with theme
-│   ├── index.html       # Feed list
-│   ├── create_feed.html # Feed creation form
-│   └── feed.html        # Individual feed view
-└── data/                # Runtime data (gitignored)
-    ├── feeds/
+├── app.py                    # Main application
+├── requirements.txt          # Python dependencies
+├── .env.example             # Environment template
+├── .gitignore              # Git ignore rules
+├── templates/              # HTML templates
+│   ├── base.html          # Base template with theme
+│   ├── index.html         # Board list
+│   ├── create_board.html  # Board creation form
+│   ├── board_view.html    # Board info view
+│   ├── board_posts.html   # Board posts view
+│   └── edit_board.html    # Board edit form
+└── data/                  # Runtime data (gitignored)
+    ├── boards/
     ├── posts/
     └── tracking/
 ```
@@ -220,7 +222,7 @@ The codebase is designed to be extensible:
 - **New LLM Providers**: Add methods to `LLMFilter` class
 - **Reddit Enhancement**: Extend `RedditAPI` class
 - **UI Improvements**: Edit templates (all use CSS variables for theming)
-- **Feed Management**: Add routes in `app.py`
+- **Board Management**: Add routes in `app.py`
 
 ### Running Tests
 
@@ -277,7 +279,7 @@ tail -f threadboard.log
 Contributions welcome! Areas for improvement:
 
 - Additional LLM provider support (Anthropic Claude, OpenAI, etc.)
-- Feed sharing/export functionality
+- Board sharing/export functionality
 - Email/webhook notifications for new posts
 - Advanced filtering (regex, keyword exclusions)
 - Performance optimizations

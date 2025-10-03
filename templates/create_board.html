@@ -129,11 +129,11 @@
             </div>
 
             <div class="form-group">
-                <label for="feed_name">Board Name</label>
+                <label for="board_name">Board Name</label>
                 <input
                     type="text"
-                    id="feed_name"
-                    name="feed_name"
+                    id="board_name"
+                    name="board_name"
                     placeholder="e.g., angry-hippo"
                     required
                 >
@@ -233,9 +233,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Initialize feed name
-        const feedNameInput = document.getElementById('feed_name');
-        feedNameInput.value = generateRandomName();
+        // Initialize board name
+        const boardNameInput = document.getElementById('board_name');
+        boardNameInput.value = generateRandomName();
 
         // Initialize Tom Select with dynamic loading from Reddit API
         const tomSelectInstance = new TomSelect('#subreddits', {
